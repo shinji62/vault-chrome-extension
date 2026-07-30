@@ -19,20 +19,15 @@ jobs:
         with:
           node-version: 20
           cache: "npm"
-          cache-dependency-path: vault-chrome-extension/package-lock.json
 
       - name: Install dependencies
         run: npm ci
-        working-directory: vault-chrome-extension
 
       - name: Lint
         run: npm run lint
-        working-directory: vault-chrome-extension
 
       - name: Test
         run: npm run test
-        working-directory: vault-chrome-extension
 
       - name: Build
         run: npm run build
-        working-directory: vault-chrome-extension
