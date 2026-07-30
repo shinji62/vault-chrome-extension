@@ -23,6 +23,7 @@ export function MetadataPanel({ client, mount, path }: MetadataPanelProps) {
         const cm = meta.data.custom_metadata ?? {};
         setPairs(Object.entries(cm));
         setLoading(false);
+        setError(null);
       })
       .catch((e: Error) => {
         setError(e.message);

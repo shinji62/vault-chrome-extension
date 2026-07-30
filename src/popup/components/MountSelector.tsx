@@ -13,8 +13,11 @@ export function MountSelector({ client, selectedMount, onSelect }: MountSelector
   const [error, setError] = useState<string | null>(null);
   const selectedMountRef = useRef(selectedMount);
   const onSelectRef = useRef(onSelect);
-  selectedMountRef.current = selectedMount;
-  onSelectRef.current = onSelect;
+
+  useEffect(() => {
+    selectedMountRef.current = selectedMount;
+    onSelectRef.current = onSelect;
+  });
 
   useEffect(() => {
     console.log('[vault] loading mounts for selector');

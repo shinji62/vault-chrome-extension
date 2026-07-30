@@ -30,6 +30,7 @@ export function SecretList({
       .then((k) => {
         setKeys(k);
         setLoading(false);
+        setError(null);
       })
       .catch((e: Error) => {
         setError(e.message);

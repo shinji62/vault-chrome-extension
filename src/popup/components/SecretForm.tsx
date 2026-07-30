@@ -63,7 +63,7 @@ export function SecretForm({
     setError(null);
     client
       .readSecret(mount, path, kvVersion)
-      .then((data) => { setPairs(Object.entries(data)); setLoadingData(false); })
+      .then((data) => { setPairs(Object.entries(data)); setLoadingData(false); setError(null); })
       .catch((e: Error) => { setError(e.message); setLoadingData(false); });
   }, [client, mount, path, kvVersion, isNew]);
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { TokenInfo } from '../types/vault';
 import { LOOKUP_TOKEN, LookupTokenMessage, LookupTokenResponse } from '../types/messages';
 
@@ -18,7 +18,7 @@ export function useTokenStatus(): UseTokenStatusResult {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTokenInfo = () => {
+  const fetchTokenInfo = useCallback(() => {
     console.log('[vault] useTokenStatus.fetchTokenInfo');
     setLoading(true);
     setError(null);
@@ -48,7 +48,7 @@ export function useTokenStatus(): UseTokenStatusResult {
         setLoading(false);
       },
     );
-  };
+  }, []);
 
   useEffect(() => {
     console.log('[vault] useTokenStatus mounted');
@@ -67,7 +67,7 @@ export function useTokenStatus(): UseTokenStatusResult {
     return () => {
       chrome.storage.onChanged.removeListener(listener);
     };
-  }, []);
+  }, [fetchTokenInfo]);
 
   return { tokenInfo, loading, error };
 }
