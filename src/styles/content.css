@@ -1,0 +1,206 @@
+/* Shadow DOM scoped styles for the Vault Chrome Extension content script */
+/* This file is imported as a raw string (via ?inline) and injected into Shadow DOM roots */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Fill icon button ────────────────────────────────────────────────────── */
+.vault-fill-btn {
+  position: fixed;
+  z-index: 2147483647;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: #1563FF;   /* HashiCorp blue */
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-shadow: 0 1px 4px rgba(21, 99, 255, 0.35);
+  transition: background 0.15s;
+}
+.vault-fill-btn:hover { background: #0F4FCC; }
+.vault-fill-btn:focus-visible {
+  outline: 2px solid #1563FF;
+  outline-offset: 2px;
+}
+.vault-fill-btn svg {
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+}
+
+/* ── Credentials dropdown ────────────────────────────────────────────────── */
+.vault-dropdown {
+  position: fixed;
+  z-index: 2147483647;
+  background: #ffffff;
+  border: 1px solid #DDE1EA;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(13, 27, 42, 0.14);
+  min-width: 220px;
+  max-width: 300px;
+  max-height: 200px;
+  overflow-y: auto;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  color: #1A1F36;
+}
+
+.vault-dropdown-header {
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6B7280;
+  border-bottom: 1px solid #DDE1EA;
+  background: #F5F7FA;
+  border-radius: 6px 6px 0 0;
+  /* Vault branding accent: left stripe */
+  border-left: 3px solid #1563FF;
+}
+
+.vault-dropdown-item {
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  color: #1A1F36;
+  border-bottom: 1px solid #ECEEF3;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  transition: background 0.1s;
+}
+.vault-dropdown-item:last-child { border-bottom: none; }
+.vault-dropdown-item:hover { background: #E5EEFF; }
+.vault-dropdown-item:focus-visible {
+  outline: 2px solid #1563FF;
+  outline-offset: -2px;
+}
+
+.vault-dropdown-username {
+  font-weight: 600;
+}
+.vault-dropdown-path {
+  font-size: 11px;
+  color: #6B7280;
+  font-family: monospace;
+}
+
+.vault-dropdown-empty {
+  padding: 10px;
+  text-align: center;
+  color: #6B7280;
+  font-size: 12px;
+}
+
+/* ── Save prompt banner ──────────────────────────────────────────────────── */
+.vault-save-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2147483647;
+  background: #0D1B2A;
+  color: #F0F4FF;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  box-shadow: 0 2px 8px rgba(13, 27, 42, 0.3);
+  border-bottom: 2px solid #1563FF;
+}
+
+.vault-save-icon {
+  color: #FFD814;   /* Vault yellow accent */
+  flex-shrink: 0;
+}
+
+.vault-save-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.vault-save-title {
+  font-weight: 600;
+}
+.vault-save-user {
+  font-size: 11px;
+  color: rgba(240,244,255,0.65);
+}
+
+.vault-save-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.vault-save-btn {
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  transition: opacity 0.1s, background 0.1s;
+}
+.vault-save-btn:focus-visible {
+  outline: 2px solid #4D8EFF;
+  outline-offset: 2px;
+}
+.vault-save-btn-primary {
+  background: #1563FF;
+  color: #fff;
+  border-color: #1563FF;
+}
+.vault-save-btn-primary:hover { background: #0F4FCC; border-color: #0F4FCC; }
+.vault-save-btn-ghost {
+  background: transparent;
+  color: rgba(240,244,255,0.65);
+  border-color: rgba(255,255,255,0.2);
+}
+.vault-save-btn-ghost:hover { color: #F0F4FF; border-color: rgba(255,255,255,0.45); }
+
+.vault-save-success {
+  color: #2DD4A8;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* ── Dark mode — OS preference ───────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  .vault-fill-btn { background: #4D8EFF; box-shadow: 0 1px 4px rgba(77,142,255,0.4); }
+  .vault-fill-btn:hover { background: #3378F0; }
+
+  .vault-dropdown {
+    background: #0B1220;
+    border-color: #243047;
+    color: #E8EDF8;
+  }
+  .vault-dropdown-header {
+    background: #121929;
+    color: #8A96B0;
+    border-bottom-color: #243047;
+    border-left-color: #4D8EFF;
+  }
+  .vault-dropdown-item { color: #E8EDF8; border-bottom-color: #1C2840; }
+  .vault-dropdown-item:hover { background: #0F1E3F; }
+  .vault-dropdown-path { color: #8A96B0; }
+  .vault-dropdown-empty { color: #8A96B0; }
+}

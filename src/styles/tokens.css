@@ -1,0 +1,174 @@
+/* ── HashiCorp Vault design tokens ────────────────────────────────────────
+   Light mode  (default)
+   Dark mode   via  @media (prefers-color-scheme: dark)
+                or  [data-theme="dark"]  (manual toggle)
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Brand — HashiCorp Vault ──────────────────────────────────────────── */
+  --color-brand:        #1563FF;   /* HashiCorp blue */
+  --color-brand-dark:   #0F4FCC;   /* pressed / hover */
+  --color-brand-subtle: #E5EEFF;   /* tinted bg */
+
+  /* ── Surface ──────────────────────────────────────────────────────────── */
+  --color-bg:            #FFFFFF;
+  --color-surface:       #F5F7FA;
+  --color-surface-raised:#FFFFFF;
+  --color-border:        #DDE1EA;
+  --color-border-subtle: #ECEEF3;
+
+  /* ── Text ─────────────────────────────────────────────────────────────── */
+  --color-text:        #1A1F36;
+  --color-muted:       #6B7280;
+  --color-placeholder: #9CA3AF;
+
+  /* ── Semantic ─────────────────────────────────────────────────────────── */
+  --color-accent:  #1563FF;
+  --color-success: #007A5E;
+  --color-warning: #B45309;
+  --color-danger:  #C92020;
+
+  /* ── TTL badge states ─────────────────────────────────────────────────── */
+  --color-ttl-green:    #007A5E;
+  --color-ttl-amber:    #B45309;
+  --color-ttl-red:      #C92020;
+  --color-ttl-green-bg: #D3F0E8;
+  --color-ttl-amber-bg: #FEF3C7;
+  --color-ttl-red-bg:   #FDE8E8;
+
+  /* ── Header strip — Vault dark navy ──────────────────────────────────── */
+  --color-header-bg:     #0D1B2A;
+  --color-header-text:   #F0F4FF;
+  --color-header-muted:  rgba(240,244,255,0.55);
+  --color-header-border: rgba(255,255,255,0.10);
+
+  /* ── Spacing ──────────────────────────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  /* ── Typography ───────────────────────────────────────────────────────── */
+  --font-family:    -apple-system, "Segoe UI", system-ui, sans-serif;
+  --font-size-xs:   11px;
+  --font-size-sm:   12px;
+  --font-size-base: 14px;
+  --font-size-md:   15px;
+  --font-size-lg:   18px;
+  --line-height:    1.6;
+
+  /* ── Borders & shadows ────────────────────────────────────────────────── */
+  --radius-sm: 5px;
+  --radius-md: 7px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --border:     1px solid var(--color-border);
+  --shadow-sm:  0 1px 3px rgba(13,27,42,0.06), 0 1px 2px rgba(13,27,42,0.04);
+  --shadow-md:  0 4px 12px rgba(13,27,42,0.08), 0 2px 4px rgba(13,27,42,0.04);
+}
+
+/* ── Dark mode — via OS preference ─────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-brand:        #4D8EFF;
+    --color-brand-dark:   #3378F0;
+    --color-brand-subtle: #0F1E3F;
+
+    --color-bg:            #0B1220;
+    --color-surface:       #121929;
+    --color-surface-raised:#182030;
+    --color-border:        #243047;
+    --color-border-subtle: #1C2840;
+
+    --color-text:        #E8EDF8;
+    --color-muted:       #8A96B0;
+    --color-placeholder: #5A6480;
+
+    --color-accent:  #4D8EFF;
+    --color-success: #2DD4A8;
+    --color-warning: #FBBF24;
+    --color-danger:  #F06060;
+
+    --color-ttl-green:    #2DD4A8;
+    --color-ttl-amber:    #FBBF24;
+    --color-ttl-red:      #F06060;
+    --color-ttl-green-bg: #052E20;
+    --color-ttl-amber-bg: #1C1007;
+    --color-ttl-red-bg:   #200A0A;
+
+    --color-header-bg:    #060F1A;
+    --color-header-text:  #E8EDF8;
+    --color-header-muted: rgba(232,237,248,0.55);
+    --color-header-border:rgba(255,255,255,0.08);
+  }
+}
+
+/* ── Dark mode — via manual data-theme toggle ───────────────────────────── */
+[data-theme="dark"] {
+  --color-brand:        #4D8EFF;
+  --color-brand-dark:   #3378F0;
+  --color-brand-subtle: #0F1E3F;
+
+  --color-bg:            #0B1220;
+  --color-surface:       #121929;
+  --color-surface-raised:#182030;
+  --color-border:        #243047;
+  --color-border-subtle: #1C2840;
+
+  --color-text:        #E8EDF8;
+  --color-muted:       #8A96B0;
+  --color-placeholder: #5A6480;
+
+  --color-accent:  #4D8EFF;
+  --color-success: #2DD4A8;
+  --color-warning: #FBBF24;
+  --color-danger:  #F06060;
+
+  --color-ttl-green:    #2DD4A8;
+  --color-ttl-amber:    #FBBF24;
+  --color-ttl-red:      #F06060;
+  --color-ttl-green-bg: #052E20;
+  --color-ttl-amber-bg: #1C1007;
+  --color-ttl-red-bg:   #200A0A;
+
+  --color-header-bg:    #060F1A;
+  --color-header-text:  #E8EDF8;
+  --color-header-muted: rgba(232,237,248,0.55);
+  --color-header-border:rgba(255,255,255,0.08);
+}
+
+/* ── Light mode forced — via manual data-theme toggle ───────────────────── */
+[data-theme="light"] {
+  --color-brand:        #1563FF;
+  --color-brand-dark:   #0F4FCC;
+  --color-brand-subtle: #E5EEFF;
+
+  --color-bg:            #FFFFFF;
+  --color-surface:       #F5F7FA;
+  --color-surface-raised:#FFFFFF;
+  --color-border:        #DDE1EA;
+  --color-border-subtle: #ECEEF3;
+
+  --color-text:        #1A1F36;
+  --color-muted:       #6B7280;
+  --color-placeholder: #9CA3AF;
+
+  --color-accent:  #1563FF;
+  --color-success: #007A5E;
+  --color-warning: #B45309;
+  --color-danger:  #C92020;
+
+  --color-ttl-green:    #007A5E;
+  --color-ttl-amber:    #B45309;
+  --color-ttl-red:      #C92020;
+  --color-ttl-green-bg: #D3F0E8;
+  --color-ttl-amber-bg: #FEF3C7;
+  --color-ttl-red-bg:   #FDE8E8;
+
+  --color-header-bg:     #0D1B2A;
+  --color-header-text:   #F0F4FF;
+  --color-header-muted:  rgba(240,244,255,0.55);
+  --color-header-border: rgba(255,255,255,0.10);
+}

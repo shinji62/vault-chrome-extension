@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Vault — Secrets Manager</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        width: 400px;
+        min-height: 520px;
+        font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+        color: #111827;
+        background: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { color: #ede9fe; background: #0f0d1a; }
+      }
+      #root {
+        display: flex;
+        flex-direction: column;
+        width: 400px;
+        min-height: 520px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>
