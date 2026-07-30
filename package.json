@@ -23,7 +23,7 @@
     "@types/react-dom": "^18.3.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
-    "@vitejs/plugin-react": "^4.3.1",
+    "@vitejs/plugin-react": "^6.0.4",
     "@vitest/coverage-v8": "^2.1.9",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
@@ -34,7 +34,7 @@
     "msw": "^2.15.0",
     "prettier": "^3.3.2",
     "typescript": "^5.4.5",
-    "vite": "^5.3.1",
+    "vite": "^8.1.5",
     "vite-plugin-web-extension": "^4.1.1",
     "vitest": "^2.1.9"
   }
