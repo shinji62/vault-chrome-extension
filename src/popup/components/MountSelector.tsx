@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { VaultClient } from '../../api/vaultClient';
 import { VaultMount } from '../../types/vault';
 
@@ -11,6 +11,10 @@ interface MountSelectorProps {
 export function MountSelector({ client, selectedMount, onSelect }: MountSelectorProps) {
   const [mounts, setMounts] = useState<Array<{ path: string; version: 1 | 2 }>>([]);
   const [error, setError] = useState<string | null>(null);
+  const selectedMountRef = useRef(selectedMount);
+  const onSelectRef = useRef(onSelect);
+  selectedMountRef.current = selectedMount;
+  onSelectRef.current = onSelect;
 
   useEffect(() => {
     console.log('[vault] loading mounts for selector');
@@ -28,8 +32,8 @@ export function MountSelector({ client, selectedMount, onSelect }: MountSelector
             version: (m.options?.version === '2' ? 2 : 1) as 1 | 2,
           }));
         setMounts(kvMounts);
-        if (kvMounts.length > 0 && !selectedMount) {
-          onSelect(kvMounts[0].path, kvMounts[0].version);
+        if (kvMounts.length > 0 && !selectedMountRef.current) {
+          onSelectRef.current(kvMounts[0].path, kvMounts[0].version);
         }
       })
       .catch((e: Error) => {

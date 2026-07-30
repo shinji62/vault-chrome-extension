@@ -151,28 +151,32 @@ async function searchSecretsByUrl(
 
   const results: Array<{ mount: string; path: string; username: string }> = [];
 
+  async function collectPaths(
+    mount: string,
+    secretPaths: string[],
+    prefix: string,
+  ): Promise<void> {
+    let keys: string[];
+    try {
+      keys = await client!.listSecrets(mount, prefix, 2);
+    } catch {
+      return; // path might be empty or not listable
+    }
+    for (const key of keys) {
+      const fullKey = prefix ? `${prefix}/${key}` : key;
+      if (key.endsWith('/')) {
+        await collectPaths(mount, secretPaths, fullKey.replace(/\/$/, ''));
+      } else {
+        secretPaths.push(fullKey);
+      }
+    }
+  }
+
   for (const mount of kv2Mounts) {
     // Recursively collect all leaf secret paths
     const secretPaths: string[] = [];
 
-    async function collectPaths(prefix: string): Promise<void> {
-      let keys: string[];
-      try {
-        keys = await client!.listSecrets(mount, prefix, 2);
-      } catch {
-        return; // path might be empty or not listable
-      }
-      for (const key of keys) {
-        const fullKey = prefix ? `${prefix}/${key}` : key;
-        if (key.endsWith('/')) {
-          await collectPaths(fullKey.replace(/\/$/, ''));
-        } else {
-          secretPaths.push(fullKey);
-        }
-      }
-    }
-
-    await collectPaths('');
+    await collectPaths(mount, secretPaths, '');
 
     // Check metadata of each secret for url match
     for (const secretPath of secretPaths) {
