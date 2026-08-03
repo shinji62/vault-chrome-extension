@@ -1,6 +1,7 @@
 import overlayCSS from '../styles/content.css?inline';
 import { LoginForm } from './formDetector';
-import { searchSecretsByUrl, getSecret } from './messaging';
+import { searchPmSecretsByUrl, getSecret } from './messaging';
+import { setNativeValue } from './domUtils';
 
 const OVERLAY_CSS = `:host { all: initial; display: contents; }\n${overlayCSS}`;
 
@@ -54,14 +55,14 @@ export function attachFillOverlay(loginForm: LoginForm): void {
 
   // Key button
   const btn = document.createElement('button');
-  btn.id = 'vault-key-btn';
+  btn.className = 'vault-fill-btn';
   btn.setAttribute('aria-label', 'Fill from Vault');
   btn.innerHTML = KEY_SVG;
   shadowRoot.appendChild(btn);
 
   // Dropdown panel
   const dropdown = document.createElement('div');
-  dropdown.id = 'vault-dropdown';
+  dropdown.className = 'vault-dropdown';
   shadowRoot.appendChild(dropdown);
 
   const entry: OverlayEntry = {
@@ -145,7 +146,7 @@ async function handleKeyBtnClick(entry: OverlayEntry): Promise<void> {
 
   let matches: Array<{ mount: string; path: string; username: string }>;
   try {
-    matches = await searchSecretsByUrl(window.location.href);
+    matches = await searchPmSecretsByUrl(window.location.href);
   } catch (err) {
     dropdown.innerHTML = `<div class="vault-dropdown-empty">Error: ${String(err)}</div>`;
     return;
@@ -161,10 +162,25 @@ async function handleKeyBtnClick(entry: OverlayEntry): Promise<void> {
     return;
   }
 
+  const header = document.createElement('div');
+  header.className = 'vault-dropdown-header';
+  header.textContent = 'Vault Passwords';
+  dropdown.appendChild(header);
+
   for (const match of matches) {
-    const item = document.createElement('div');
+    const item = document.createElement('button');
     item.className = 'vault-dropdown-item';
-    item.textContent = `${match.username} @ ${match.path}`;
+
+    const usernameEl = document.createElement('span');
+    usernameEl.className = 'vault-dropdown-username';
+    usernameEl.textContent = match.username || '(no username)';
+    item.appendChild(usernameEl);
+
+    const pathEl = document.createElement('span');
+    pathEl.className = 'vault-dropdown-path';
+    pathEl.textContent = match.path;
+    item.appendChild(pathEl);
+
     item.addEventListener('click', (e) => {
       e.stopPropagation();
       void fillCredentials(entry, match, loginForm);
@@ -196,20 +212,3 @@ async function fillCredentials(
   setNativeValue(passwordField, password);
 }
 
-/**
- * Set the value on an input and fire `input` + `change` events so that
- * React / Vue / Angular form bindings update their internal state.
- */
-function setNativeValue(field: HTMLInputElement, value: string): void {
-  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-    window.HTMLInputElement.prototype,
-    'value',
-  )?.set;
-  if (nativeInputValueSetter) {
-    nativeInputValueSetter.call(field, value);
-  } else {
-    field.value = value;
-  }
-  field.dispatchEvent(new Event('input', { bubbles: true }));
-  field.dispatchEvent(new Event('change', { bubbles: true }));
-}

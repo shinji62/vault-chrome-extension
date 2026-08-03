@@ -218,6 +218,11 @@ export function Options({ onBack }: OptionsProps = {}) {
   const [errorMessage, setErrorMessage] = useState('');
   const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(null);
 
+  // PM settings state
+  const [pmNamespace, setPmNamespace] = useState('');
+  const [pmMount, setPmMount] = useState('');
+  const [pmSaveStatus, setPmSaveStatus] = useState<'' | 'saved'>('');
+
   useEffect(() => {
     if (loading) return;
     if (settings) {
@@ -226,6 +231,8 @@ export function Options({ onBack }: OptionsProps = {}) {
       setAuthMethod(settings.authMethod ?? 'token');
       setOidcRole(settings.oidcRole ?? '');
       setOidcMount(settings.oidcMount ?? 'oidc');
+      setPmNamespace(settings.pmNamespace ?? '');
+      setPmMount(settings.pmMount ?? '');
     }
   }, [loading, settings]);
 
@@ -488,6 +495,65 @@ export function Options({ onBack }: OptionsProps = {}) {
             </form>
           </div>
         </div>
+
+        {/* ── Password Manager card (only when connected) ── */}
+        {badgeState === 'connected' && settings && (
+          <div className="options-card" style={{ marginTop: 12 }}>
+            <div className="flex-col" style={{ gap: 16 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--color-text)' }}>
+                Password Manager
+              </div>
+
+              <div className="field">
+                <label htmlFor="pmNamespace">
+                  PM Namespace <span className="label-optional">(optional — leave empty for root)</span>
+                </label>
+                <input
+                  id="pmNamespace"
+                  type="text"
+                  value={pmNamespace}
+                  onChange={(e) => setPmNamespace(e.target.value)}
+                  placeholder="e.g. team/passwords"
+                />
+              </div>
+
+              <div className="field">
+                <label htmlFor="pmMount">
+                  KV v2 Mount <span className="label-optional">(default: secret)</span>
+                </label>
+                <input
+                  id="pmMount"
+                  type="text"
+                  value={pmMount}
+                  onChange={(e) => setPmMount(e.target.value)}
+                  placeholder="secret"
+                />
+              </div>
+
+              <div className="flex gap-2" style={{ alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={async () => {
+                    const updated = {
+                      ...settings,
+                      pmNamespace: pmNamespace.trim() || undefined,
+                      pmMount: pmMount.trim() || undefined,
+                    };
+                    await chrome.storage.local.set({ vaultSettings: updated });
+                    setPmSaveStatus('saved');
+                    setTimeout(() => setPmSaveStatus(''), 2000);
+                  }}
+                >
+                  Save PM Settings
+                </button>
+                {pmSaveStatus === 'saved' && (
+                  <span className="badge badge-success" style={{ fontSize: 12 }}>Saved ✓</span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

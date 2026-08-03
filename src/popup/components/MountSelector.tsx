@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { VaultClient } from '../../api/vaultClient';
 import { VaultMount } from '../../types/vault';
 
@@ -25,10 +25,7 @@ export function MountSelector({ client, selectedMount, onSelect }: MountSelector
       .listMounts()
       .then((all: Record<string, VaultMount>) => {
         console.log('[vault] mounts loaded', all);
-        const mountsData = 'data' in all && all.data && typeof all.data === 'object'
-          ? all.data as Record<string, VaultMount>
-          : all;
-        const kvMounts = Object.entries(mountsData)
+        const kvMounts = Object.entries(all)
           .filter(([, m]) => m?.type === 'kv')
           .map(([key, m]) => ({
             path: key.replace(/\/$/, ''),

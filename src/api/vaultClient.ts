@@ -96,8 +96,12 @@ export class VaultClient {
   }
 
   async listMounts(): Promise<Record<string, VaultMount>> {
-    const response = await this.request<Record<string, VaultMount>>('GET', '/v1/sys/mounts');
-    return response;
+    // GET /v1/sys/mounts wraps the mount map under `data`.
+    const response = await this.request<{ data: Record<string, VaultMount> }>(
+      'GET',
+      '/v1/sys/mounts',
+    );
+    return response.data;
   }
 
   async listNamespaces(): Promise<string[]> {

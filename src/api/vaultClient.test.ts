@@ -423,6 +423,55 @@ describe('namespace', () => {
   });
 });
 
+// ── Mounts ─────────────────────────────────────────────────────────────────────
+describe('mounts', () => {
+  it('listMounts unwraps the data field to a flat mount map', async () => {
+    server.use(
+      http.get(`${BASE}/v1/sys/mounts`, () =>
+        HttpResponse.json({
+          data: {
+            'secret/': { type: 'kv', options: { version: '2' } },
+            'ssh/': { type: 'ssh', options: {} },
+          },
+        }),
+      ),
+    );
+
+    const client = makeClient();
+    const mounts = await client.listMounts();
+
+    expect(mounts).toEqual({
+      'secret/': { type: 'kv', options: { version: '2' } },
+      'ssh/': { type: 'ssh', options: {} },
+    });
+    expect(mounts['secret/']?.options?.version).toBe('2');
+  });
+
+  it('detectKVVersion returns 2 for a KV v2 mount', async () => {
+    server.use(
+      http.get(`${BASE}/v1/sys/mounts`, () =>
+        HttpResponse.json({
+          data: { 'secret/': { type: 'kv', options: { version: '2' } } },
+        }),
+      ),
+    );
+
+    const client = makeClient();
+    expect(await client.detectKVVersion('secret')).toBe(2);
+  });
+
+  it('detectKVVersion returns 1 when the mount is missing or has no version option', async () => {
+    server.use(
+      http.get(`${BASE}/v1/sys/mounts`, () =>
+        HttpResponse.json({ data: { 'kv1/': { type: 'kv', options: {} } } }),
+      ),
+    );
+
+    const client = makeClient();
+    expect(await client.detectKVVersion('secret')).toBe(1);
+  });
+});
+
 // ── Error handling ────────────────────────────────────────────────────────────
 describe('error handling', () => {
   it('throws VaultApiError with correct statusCode and vaultErrors', async () => {

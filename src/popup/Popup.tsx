@@ -9,6 +9,8 @@ import { MountPicker } from './components/MountPicker';
 import { SecretList } from './components/SecretList';
 import { SecretDetail } from './components/SecretDetail';
 import { SecretForm } from './components/SecretForm';
+import { ModeTabBar } from './components/ModeTabBar';
+import { PasswordManager } from './components/PasswordManager';
 import { VaultLogo } from '../components/VaultLogo';
 import { Options } from '../options/Options';
 
@@ -52,6 +54,15 @@ function useTheme() {
   return { theme, toggle };
 }
 
+function readMode(): 'secrets' | 'passwords' {
+  try {
+    const stored = sessionStorage.getItem('vault-pm-mode');
+    return stored === 'passwords' ? 'passwords' : 'secrets';
+  } catch {
+    return 'secrets';
+  }
+}
+
 export function Popup() {
   const client = useVaultClient();
   const { settings, rootNamespace, loading: settingsLoading, updateNamespace } = useSettings();
@@ -60,6 +71,12 @@ export function Popup() {
   const [screen, setScreen] = useState<Screen>({ id: 'not-connected' });
   const returnScreen = React.useRef<Screen>({ id: 'not-connected' });
   const { theme, toggle: toggleTheme } = useTheme();
+  const [mode, setModeState] = useState<'secrets' | 'passwords'>(readMode);
+
+  const setMode = (m: 'secrets' | 'passwords') => {
+    try { sessionStorage.setItem('vault-pm-mode', m); } catch { /* noop */ }
+    setModeState(m);
+  };
 
   useEffect(() => {
     console.log('[vault] popup state', {
@@ -199,115 +216,132 @@ export function Popup() {
         }
       />
 
-      {/* Mount toolbar — shown when inside a KV mount */}
-      {(screen.id === 'listing' || screen.id === 'detail') && (
-        <div className="mount-toolbar">
-          <button
-            className="btn btn-ghost btn-sm"
-            style={{ flexShrink: 0 }}
-            onClick={() => setScreen({ id: 'mount-picker' })}
-            title="Back to mount picker"
-          >
-            ← {screen.mount}
-          </button>
+      {/* Mode tab bar */}
+      <ModeTabBar mode={mode} onSelect={setMode} />
+
+      {/* ── Passwords mode ── */}
+      {mode === 'passwords' && settings && (
+        <PasswordManager
+          client={vaultClient}
+          settings={settings}
+          onOpenSettings={openSettings}
+        />
+      )}
+
+      {/* ── Secrets mode ── */}
+      {mode === 'secrets' && (
+        <>
+          {/* Mount toolbar — shown when inside a KV mount */}
+          {(screen.id === 'listing' || screen.id === 'detail') && (
+            <div className="mount-toolbar">
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ flexShrink: 0 }}
+                onClick={() => setScreen({ id: 'mount-picker' })}
+                title="Back to mount picker"
+              >
+                ← {screen.mount}
+              </button>
+              {screen.id === 'listing' && screen.mount && (
+                <button
+                  className="btn btn-sm btn-primary"
+                  style={{ flexShrink: 0, marginLeft: 'auto' }}
+                  onClick={() =>
+                    setScreen({
+                      id: 'new',
+                      mount: screen.mount,
+                      kvVersion: screen.kvVersion,
+                      path: screen.path,
+                    })
+                  }
+                >
+                  + New
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Mount picker screen */}
+          {screen.id === 'mount-picker' && (
+            <MountPicker
+              client={vaultClient}
+              onSelectKV={(mount, kvVersion) =>
+                setScreen({ id: 'listing', mount, kvVersion, path: '' })
+              }
+            />
+          )}
+
+          {/* Screens */}
           {screen.id === 'listing' && screen.mount && (
-            <button
-              className="btn btn-sm btn-primary"
-              style={{ flexShrink: 0, marginLeft: 'auto' }}
-              onClick={() =>
+            <SecretList
+              client={vaultClient}
+              mount={screen.mount}
+              kvVersion={screen.kvVersion}
+              path={screen.path}
+              onNavigate={(path) =>
+                setScreen({ id: 'listing', mount: screen.mount, kvVersion: screen.kvVersion, path })
+              }
+              onSelect={(secretPath) =>
+                setScreen({ id: 'detail', mount: screen.mount, kvVersion: screen.kvVersion, path: secretPath })
+              }
+            />
+          )}
+
+          {screen.id === 'detail' && (
+            <SecretDetail
+              client={vaultClient}
+              mount={screen.mount}
+              kvVersion={screen.kvVersion}
+              path={screen.path}
+              onBack={() =>
                 setScreen({
-                  id: 'new',
+                  id: 'listing',
                   mount: screen.mount,
                   kvVersion: screen.kvVersion,
-                  path: screen.path,
+                  path: parentDir(screen.path),
                 })
               }
-            >
-              + New
-            </button>
+              onEdit={() => {
+                setScreen({ id: 'editing', mount: screen.mount, kvVersion: screen.kvVersion, path: screen.path });
+              }}
+              onDelete={() =>
+                setScreen({
+                  id: 'listing',
+                  mount: screen.mount,
+                  kvVersion: screen.kvVersion,
+                  path: parentDir(screen.path),
+                })
+              }
+            />
           )}
-        </div>
-      )}
 
-      {/* Mount picker screen */}
-      {screen.id === 'mount-picker' && (
-        <MountPicker
-          client={vaultClient}
-          onSelectKV={(mount, kvVersion) =>
-            setScreen({ id: 'listing', mount, kvVersion, path: '' })
-          }
-        />
-      )}
-
-      {/* Screens */}
-      {screen.id === 'listing' && screen.mount && (
-        <SecretList
-          client={vaultClient}
-          mount={screen.mount}
-          kvVersion={screen.kvVersion}
-          path={screen.path}
-          onNavigate={(path) =>
-            setScreen({ id: 'listing', mount: screen.mount, kvVersion: screen.kvVersion, path })
-          }
-          onSelect={(secretPath) =>
-            setScreen({ id: 'detail', mount: screen.mount, kvVersion: screen.kvVersion, path: secretPath })
-          }
-        />
-      )}
-
-      {screen.id === 'detail' && (
-        <SecretDetail
-          client={vaultClient}
-          mount={screen.mount}
-          kvVersion={screen.kvVersion}
-          path={screen.path}
-          onBack={() =>
-            setScreen({
-              id: 'listing',
-              mount: screen.mount,
-              kvVersion: screen.kvVersion,
-              path: parentDir(screen.path),
-            })
-          }
-          onEdit={() => {
-            setScreen({ id: 'editing', mount: screen.mount, kvVersion: screen.kvVersion, path: screen.path });
-          }}
-          onDelete={() =>
-            setScreen({
-              id: 'listing',
-              mount: screen.mount,
-              kvVersion: screen.kvVersion,
-              path: parentDir(screen.path),
-            })
-          }
-        />
-      )}
-
-      {(screen.id === 'editing' || screen.id === 'new') && (
-        <SecretForm
-          client={vaultClient}
-          mount={screen.mount}
-          kvVersion={screen.kvVersion}
-          path={screen.path}
-          isNew={screen.id === 'new'}
-          onSave={() =>
-            setScreen({
-              id: 'listing',
-              mount: screen.mount,
-              kvVersion: screen.kvVersion,
-              // editing: path is the secret itself → go to parent dir
-              // new: path is the current directory → stay in it
-              path: screen.id === 'editing' ? parentDir(screen.path) : screen.path,
-            })
-          }
-          onCancel={() => {
-            if (screen.id === 'editing') {
-              setScreen({ id: 'detail', mount: screen.mount, kvVersion: screen.kvVersion, path: screen.path });
-            } else {
-              setScreen({ id: 'listing', mount: screen.mount, kvVersion: screen.kvVersion, path: screen.path });
-            }
-          }}
-        />
+          {(screen.id === 'editing' || screen.id === 'new') && (
+            <SecretForm
+              client={vaultClient}
+              mount={screen.mount}
+              kvVersion={screen.kvVersion}
+              path={screen.path}
+              isNew={screen.id === 'new'}
+              onSave={() =>
+                setScreen({
+                  id: 'listing',
+                  mount: screen.mount,
+                  kvVersion: screen.kvVersion,
+                  // editing: path is the secret itself → go to parent dir
+                  // new: path is the current directory → stay in it
+                  path: screen.id === 'editing' ? parentDir(screen.path) : screen.path,
+                })
+              }
+              onCancel={() => {
+                if (screen.id === 'editing') {
+                  setScreen({ id: 'detail', mount: screen.mount, kvVersion: screen.kvVersion, path: screen.path });
+                } else {
+                  setScreen({ id: 'listing', mount: screen.mount, kvVersion: screen.kvVersion, path: screen.path });
+                }
+              }}
+            />
+          )}
+        </>
       )}
     </div>
   );

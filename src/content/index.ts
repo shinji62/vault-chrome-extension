@@ -1,7 +1,10 @@
 import { detectLoginForms, observeForms, LoginForm } from './formDetector';
 import { attachFillOverlay, detachAllOverlays } from './fillOverlay';
 import { showSavePrompt, hideSavePrompt } from './savePrompt';
-import { searchSecretsByUrl } from './messaging';
+import { searchPmSecretsByUrl } from './messaging';
+import { FILL_CREDENTIALS } from '../types/messages';
+import { setNativeValue } from './domUtils';
+import { Settings } from '../types/settings';
 
 // ---------------------------------------------------------------------------
 // Submit listener — attached per form/field to avoid duplicates
@@ -30,7 +33,7 @@ function attachSubmitListener(loginForm: LoginForm): void {
       setTimeout(() => {
         void (async () => {
           try {
-            const matches = await searchSecretsByUrl(window.location.href);
+            const matches = await searchPmSecretsByUrl(window.location.href);
             if (matches.length === 0) {
               hideSavePrompt();
               showSavePrompt(username, password);
@@ -59,14 +62,42 @@ function wireLoginForms(forms: LoginForm[]): void {
 }
 
 // ---------------------------------------------------------------------------
-// Entry point
+// Push-fill listener (triggered by the popup via chrome.tabs.sendMessage)
 // ---------------------------------------------------------------------------
 
-// 1. Detect initial login forms and wire them up
-const initialForms = detectLoginForms();
-wireLoginForms(initialForms);
+chrome.runtime.onMessage.addListener((message: { type: string; username?: string; password?: string }) => {
+  if (message.type !== FILL_CREDENTIALS) return;
 
-// 2. Observe DOM mutations for dynamically added forms (SPAs)
-observeForms((forms) => {
-  wireLoginForms(forms);
+  const forms = detectLoginForms();
+  if (forms.length === 0) return;
+
+  const { usernameField, passwordField } = forms[0];
+
+  if (usernameField && message.username) {
+    setNativeValue(usernameField, message.username);
+  }
+  if (message.password) {
+    setNativeValue(passwordField, message.password);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Entry point — only activate PM overlays if pmNamespace is configured
+// ---------------------------------------------------------------------------
+
+chrome.storage.local.get(['vaultSettings'], (result) => {
+  const settings = result['vaultSettings'] as Settings | undefined;
+
+  // PM features require the Password Manager to be configured (pmNamespace and/or
+  // pmMount). Match the popup's activation rule; if not configured stay silent.
+  if (!settings || (!settings.pmNamespace && !settings.pmMount)) return;
+
+  // 1. Detect initial login forms and wire them up
+  const initialForms = detectLoginForms();
+  wireLoginForms(initialForms);
+
+  // 2. Observe DOM mutations for dynamically added forms (SPAs)
+  observeForms((forms) => {
+    wireLoginForms(forms);
+  });
 });

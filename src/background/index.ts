@@ -3,11 +3,16 @@ import { Settings } from '../types/settings';
 import {
   BackgroundResponse,
   ExtensionMessage,
+  FILL_CREDENTIALS,
+  GENERATE_PM_PASSWORD,
   GET_SECRET,
+  LIST_PM_PASSWORD_POLICIES,
   LOOKUP_TOKEN,
   OIDC_LOGIN,
   RENEW_TOKEN,
+  SAVE_PM_SECRET,
   SAVE_SECRET,
+  SEARCH_PM_SECRETS_BY_URL,
   SEARCH_SECRETS_BY_URL,
 } from '../types/messages';
 import { TokenInfo } from '../types/vault';
@@ -19,6 +24,8 @@ import { hostnamesMatch } from '../utils/urlMatcher';
 // ---------------------------------------------------------------------------
 
 let client: VaultClient | null = null;
+let pmClient: VaultClient | null = null;
+let entityId: string = '';
 
 // ---------------------------------------------------------------------------
 // Storage helpers
@@ -67,6 +74,17 @@ async function initialise(): Promise<void> {
     } catch (e) {
       console.warn('[vault] Could not look up token on startup:', e);
     }
+    try {
+      const self = await client.lookupTokenSelf();
+      entityId = self.data.entity_id || self.data.accessor;
+      await storageLocalSet({ vaultEntityId: entityId });
+    } catch (e) {
+      console.warn('[vault] Could not look up token self on startup:', e);
+    }
+    pmClient = new VaultClient(
+      { ...settings, namespace: settings.pmNamespace || undefined },
+      token,
+    );
   }
 }
 
@@ -81,7 +99,7 @@ function rebuildClient(): void {
   Promise.all([
     storageLocalGet<unknown>(['vaultSettings']),
     storageSessionGet<unknown>(['vaultToken']),
-  ]).then(([localStored, sessionStored]) => {
+  ]).then(async ([localStored, sessionStored]) => {
     const settings = localStored['vaultSettings'] as Settings | undefined;
     const token = sessionStored['vaultToken'] as string | undefined;
 
@@ -91,7 +109,24 @@ function rebuildClient(): void {
       namespace: settings?.namespace,
     });
 
-    client = (settings && token) ? new VaultClient(settings, token) : null;
+    if (settings && token) {
+      client = new VaultClient(settings, token);
+      try {
+        const self = await client.lookupTokenSelf();
+        entityId = self.data.entity_id || self.data.accessor;
+        await storageLocalSet({ vaultEntityId: entityId });
+      } catch (e) {
+        console.warn('[vault] Could not look up token self on rebuild:', e);
+      }
+      pmClient = new VaultClient(
+        { ...settings, namespace: settings.pmNamespace || undefined },
+        token,
+      );
+    } else {
+      client = null;
+      pmClient = null;
+      entityId = '';
+    }
   });
 }
 
@@ -244,6 +279,65 @@ async function handleMessage(message: ExtensionMessage): Promise<BackgroundRespo
       if (!client) return { success: false, error: 'Vault client not initialised' };
       const data = await client.readSecret(message.mount, message.path, message.kvVersion);
       return { success: true, data };
+    }
+
+    case SEARCH_PM_SECRETS_BY_URL: {
+      if (!pmClient || !entityId) return { success: false, error: 'PM client not initialised or entity ID missing' };
+      const localStore = await storageLocalGet<unknown>(['vaultSettings']);
+      const pmSettings = localStore['vaultSettings'] as Settings | undefined;
+      const mount = pmSettings?.pmMount || 'secret';
+      const basePath = `password-manager/${entityId}`;
+      let keys: string[];
+      try {
+        keys = await pmClient.listSecrets(mount, basePath, 2);
+      } catch {
+        return { success: true, data: [] };
+      }
+      const pmResults: Array<{ mount: string; path: string; username: string }> = [];
+      for (const key of keys) {
+        if (key.endsWith('/')) continue; // skip sub-directories
+        const secretPath = `${basePath}/${key}`;
+        try {
+          const metadata = await pmClient.readMetadata(mount, secretPath);
+          const storedUrl = metadata.data?.custom_metadata?.url;
+          if (!storedUrl || !hostnamesMatch(storedUrl, message.url)) continue;
+          const data = await pmClient.readSecret(mount, secretPath, 2);
+          const username = (data['username'] as string) ?? '';
+          pmResults.push({ mount, path: secretPath, username });
+        } catch {
+          // skip unreadable secrets
+        }
+      }
+      return { success: true, data: pmResults };
+    }
+
+    case SAVE_PM_SECRET: {
+      if (!pmClient || !entityId) return { success: false, error: 'PM client not initialised or entity ID missing' };
+      const localStore2 = await storageLocalGet<unknown>(['vaultSettings']);
+      const pmSettings2 = localStore2['vaultSettings'] as Settings | undefined;
+      const mount = pmSettings2?.pmMount || 'secret';
+      const path = `password-manager/${entityId}/${message.label}`;
+      await pmClient.createOrUpdateSecret(mount, path, { username: message.username, password: message.password }, 2);
+      await pmClient.updateMetadata(mount, path, { url: message.url });
+      return { success: true, data: undefined };
+    }
+
+    case LIST_PM_PASSWORD_POLICIES: {
+      if (!pmClient) return { success: false, error: 'PM client not initialised' };
+      const policies = await pmClient.listPasswordPolicies();
+      return { success: true, data: policies };
+    }
+
+    case GENERATE_PM_PASSWORD: {
+      if (!pmClient) return { success: false, error: 'PM client not initialised' };
+      const generated = await pmClient.generatePassword(message.policyName);
+      return { success: true, data: generated };
+    }
+
+    // FILL_CREDENTIALS targets the content script (popup -> active tab) and is
+    // never routed to the background worker.
+    case FILL_CREDENTIALS: {
+      return { success: false, error: 'FILL_CREDENTIALS is handled by the content script' };
     }
 
     case SAVE_SECRET: {

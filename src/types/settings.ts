@@ -9,4 +9,8 @@ export interface Settings {
   oidcMount?: string;
   /** Override the redirect URI sent to Vault (must be in allowed_redirect_uris) */
   oidcRedirectUri?: string;
+  /** Vault namespace dedicated to Password Manager storage (empty = root namespace) */
+  pmNamespace?: string;
+  /** KV v2 mount inside pmNamespace used for Password Manager storage (default: "secret") */
+  pmMount?: string;
 }

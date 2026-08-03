@@ -40,6 +40,10 @@
 
 /* ── Credentials dropdown ────────────────────────────────────────────────── */
 .vault-dropdown {
+  display: none;
+}
+.vault-dropdown.open {
+  display: block;
   position: fixed;
   z-index: 2147483647;
   background: #ffffff;

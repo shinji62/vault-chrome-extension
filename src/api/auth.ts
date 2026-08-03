@@ -3,7 +3,7 @@ import { VaultClient } from './vaultClient';
 import { OIDC_LOGIN } from '../types/messages';
 
 export async function loginWithToken(settings: Settings, token: string): Promise<string> {
-  const client = new VaultClient({ ...settings, token });
+  const client = new VaultClient(settings, token);
   await client.lookupToken();
   return token;
 }
