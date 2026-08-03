@@ -13,23 +13,27 @@
 .vault-fill-btn {
   position: fixed;
   z-index: 2147483647;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   border: none;
-  background: #1563FF;   /* HashiCorp blue */
-  color: #fff;
+  background: linear-gradient(180deg, #C99733, #9A6E22); /* brass */
+  color: #fffdf7;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  box-shadow: 0 1px 4px rgba(21, 99, 255, 0.35);
-  transition: background 0.15s;
+  box-shadow: 0 2px 6px rgba(120, 82, 18, 0.4);
+  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
 }
-.vault-fill-btn:hover { background: #0F4FCC; }
+.vault-fill-btn:hover {
+  background: linear-gradient(180deg, #D8A83E, #A8763E);
+  box-shadow: 0 3px 8px rgba(120, 82, 18, 0.5);
+  transform: translateY(-1px);
+}
 .vault-fill-btn:focus-visible {
-  outline: 2px solid #1563FF;
+  outline: 2px solid #D8A83E;
   outline-offset: 2px;
 }
 .vault-fill-btn svg {
@@ -61,14 +65,16 @@
 
 .vault-dropdown-header {
   padding: 6px 10px;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: #6B7280;
   border-bottom: 1px solid #DDE1EA;
   background: #F5F7FA;
   border-radius: 6px 6px 0 0;
-  /* Vault branding accent: left stripe */
-  border-left: 3px solid #1563FF;
+  /* brass vault accent: left stripe */
+  border-left: 3px solid #A8763E;
 }
 
 .vault-dropdown-item {
@@ -88,9 +94,9 @@
   transition: background 0.1s;
 }
 .vault-dropdown-item:last-child { border-bottom: none; }
-.vault-dropdown-item:hover { background: #E5EEFF; }
+.vault-dropdown-item:hover { background: #F1E6D2; }
 .vault-dropdown-item:focus-visible {
-  outline: 2px solid #1563FF;
+  outline: 2px solid #A8763E;
   outline-offset: -2px;
 }
 
@@ -117,20 +123,20 @@
   left: 0;
   right: 0;
   z-index: 2147483647;
-  background: #0D1B2A;
-  color: #F0F4FF;
-  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  background: #171309;
+  color: #F3EDDC;
+  font-family: "Manrope", -apple-system, "Segoe UI", system-ui, sans-serif;
   font-size: 13px;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
-  box-shadow: 0 2px 8px rgba(13, 27, 42, 0.3);
-  border-bottom: 2px solid #1563FF;
+  box-shadow: 0 2px 12px rgba(13, 10, 4, 0.4);
+  border-bottom: 2px solid #A8763E;
 }
 
 .vault-save-icon {
-  color: #FFD814;   /* Vault yellow accent */
+  color: #E7C56A;   /* brass accent */
   flex-shrink: 0;
 }
 
@@ -165,21 +171,21 @@
   transition: opacity 0.1s, background 0.1s;
 }
 .vault-save-btn:focus-visible {
-  outline: 2px solid #4D8EFF;
+  outline: 2px solid #D8A83E;
   outline-offset: 2px;
 }
 .vault-save-btn-primary {
-  background: #1563FF;
-  color: #fff;
-  border-color: #1563FF;
+  background: linear-gradient(180deg, #C99733, #A8763E);
+  color: #fffdf7;
+  border-color: #A8763E;
 }
-.vault-save-btn-primary:hover { background: #0F4FCC; border-color: #0F4FCC; }
+.vault-save-btn-primary:hover { filter: brightness(1.07); }
 .vault-save-btn-ghost {
   background: transparent;
-  color: rgba(240,244,255,0.65);
+  color: rgba(243,237,220,0.65);
   border-color: rgba(255,255,255,0.2);
 }
-.vault-save-btn-ghost:hover { color: #F0F4FF; border-color: rgba(255,255,255,0.45); }
+.vault-save-btn-ghost:hover { color: #F3EDDC; border-color: rgba(231,197,106,0.5); }
 
 .vault-save-success {
   color: #2DD4A8;
@@ -189,22 +195,22 @@
 
 /* ── Dark mode — OS preference ───────────────────────────────────────────── */
 @media (prefers-color-scheme: dark) {
-  .vault-fill-btn { background: #4D8EFF; box-shadow: 0 1px 4px rgba(77,142,255,0.4); }
-  .vault-fill-btn:hover { background: #3378F0; }
+  .vault-fill-btn { background: linear-gradient(180deg, #D8A83E, #A8763E); box-shadow: 0 2px 6px rgba(120,82,18,0.4); }
+  .vault-fill-btn:hover { filter: brightness(1.07); }
 
   .vault-dropdown {
-    background: #0B1220;
-    border-color: #243047;
-    color: #E8EDF8;
+    background: #12100B;
+    border-color: #2E281D;
+    color: #EDE7D8;
   }
   .vault-dropdown-header {
-    background: #121929;
-    color: #8A96B0;
-    border-bottom-color: #243047;
-    border-left-color: #4D8EFF;
+    background: #1A1711;
+    color: #9B9280;
+    border-bottom-color: #2E281D;
+    border-left-color: #D8A83E;
   }
-  .vault-dropdown-item { color: #E8EDF8; border-bottom-color: #1C2840; }
-  .vault-dropdown-item:hover { background: #0F1E3F; }
-  .vault-dropdown-path { color: #8A96B0; }
-  .vault-dropdown-empty { color: #8A96B0; }
+  .vault-dropdown-item { color: #EDE7D8; border-bottom-color: #262116; }
+  .vault-dropdown-item:hover { background: #2A2112; }
+  .vault-dropdown-path { color: #9B9280; }
+  .vault-dropdown-empty { color: #9B9280; }
 }

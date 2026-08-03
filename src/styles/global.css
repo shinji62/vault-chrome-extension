@@ -16,6 +16,29 @@ body {
   background: var(--color-bg);
   line-height: var(--line-height);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "ss01", "cv01"; /* Manrope alternates, when loaded */
+}
+
+/* Subtle paper grain over the app background — adds warmth without noise bars */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    color-mix(in srgb, var(--color-text) 5%, transparent) 1px,
+    transparent 0
+  );
+  background-size: 3px 3px;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
 }
 
 /* ── Typography ─────────────────────────────────────────────────────────── */
@@ -59,22 +82,30 @@ p  { color: var(--color-muted); }
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: 10px 14px;
-  background: var(--color-header-bg);
+  padding: 12px 14px;
+  background:
+    radial-gradient(120% 160% at 12% -40%, var(--color-header-glow), transparent 55%),
+    var(--color-header-bg);
   border-bottom: 1px solid var(--color-header-border);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
   flex-shrink: 0;
 }
 .app-header-logo {
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
 }
 .app-header-title {
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
   font-size: var(--font-size-md);
-  font-weight: 700;
+  font-style: italic;
+  font-weight: 650;
   color: var(--color-header-text);
   letter-spacing: 0.01em;
   flex: 1;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.35);
 }
 
 /* ── Status-bar namespace picker ─────────────────────────────────────────── */
@@ -145,8 +176,8 @@ p  { color: var(--color-muted); }
   border-color: var(--color-accent);
 }
 .btn:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--ring);
 }
 .btn:disabled {
   opacity: 0.5;
@@ -154,23 +185,27 @@ p  { color: var(--color-muted); }
 }
 
 .btn-primary {
-  background: var(--color-accent);
-  color: #fff;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-brand) 88%, #fff), var(--color-brand));
+  color: #fffdf7;
   border-color: transparent;
-  box-shadow: 0 1px 4px rgba(108,71,255,0.25);
+  box-shadow: 0 1px 0 color-mix(in srgb, #fff 18%, transparent) inset,
+    0 1px 3px color-mix(in srgb, var(--color-brand) 45%, transparent);
 }
 .btn-primary:hover:not(:disabled) {
-  background: var(--color-brand-dark, #5538d4);
+  background: linear-gradient(180deg, var(--color-brand), var(--color-brand-dark));
   border-color: transparent;
-  box-shadow: 0 2px 8px rgba(108,71,255,0.35);
+  box-shadow: 0 1px 0 color-mix(in srgb, #fff 16%, transparent) inset,
+    0 3px 10px color-mix(in srgb, var(--color-brand) 55%, transparent);
 }
+.btn-primary:active:not(:disabled) { transform: translateY(0.5px); }
 
 .btn-danger {
   background: var(--color-danger);
   color: #fff;
   border-color: transparent;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--color-danger) 40%, transparent);
 }
-.btn-danger:hover:not(:disabled) { opacity: 0.88; }
+.btn-danger:hover:not(:disabled) { filter: brightness(1.05); }
 
 .btn-ghost {
   background: transparent;
@@ -186,8 +221,8 @@ p  { color: var(--color-muted); }
 
 /* Inverted ghost for use on the dark header */
 .btn-ghost-header {
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
   color: var(--color-header-text);
   box-shadow: none;
   font-size: var(--font-size-sm);
@@ -196,9 +231,14 @@ p  { color: var(--color-muted); }
   cursor: pointer;
   font-family: var(--font-family);
   font-weight: 500;
-  transition: background 0.15s;
+  transition: background 0.15s, transform 0.1s, border-color 0.15s;
+  backdrop-filter: blur(2px);
 }
-.btn-ghost-header:hover:not(:disabled) { background: rgba(255,255,255,0.15); }
+.btn-ghost-header:hover:not(:disabled) {
+  background: rgba(216,168,62,0.16);
+  border-color: rgba(216,168,62,0.35);
+}
+.btn-ghost-header:active:not(:disabled) { transform: translateY(0.5px); }
 
 .btn-sm {
   padding: 4px 10px;
@@ -260,7 +300,7 @@ select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+  box-shadow: var(--ring);
 }
 
 .input-error { border-color: var(--color-danger) !important; }
@@ -323,12 +363,12 @@ textarea:focus {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 5px 12px;
+  padding: 6px 12px;
   border-bottom: var(--border);
   font-size: var(--font-size-sm);
-  background: var(--color-surface);
+  background: var(--color-bg);
   flex-shrink: 0;
-  min-height: 36px;
+  min-height: 38px;
 }
 
 /* ── Mount toolbar ───────────────────────────────────────────────────────── */
@@ -356,21 +396,25 @@ textarea:focus {
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 12px 14px;
-  background: var(--color-surface);
+  padding: 13px 15px;
+  background: var(--color-surface-raised);
   border: var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   color: var(--color-text);
   font-size: var(--font-size-sm);
   font-weight: 500;
   text-align: left;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
+  transition: background 0.14s, border-color 0.14s, transform 0.1s, box-shadow 0.14s;
+  box-shadow: var(--shadow-sm);
 }
 .mount-pick-btn:hover:not(:disabled) {
-  background: var(--color-surface-hover, color-mix(in srgb, var(--color-surface) 80%, var(--color-accent)));
+  background: var(--color-surface);
   border-color: var(--color-accent);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
+.mount-pick-btn:active:not(:disabled) { transform: translateY(0); }
 .mount-pick-btn:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
@@ -445,8 +489,8 @@ textarea:focus {
   flex-wrap: wrap;
   flex-shrink: 0;
   background: var(--color-surface);
-  font-family: "SF Mono", ui-monospace, "Cascadia Code", "Fira Code", monospace;
-  font-size: 11px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
   letter-spacing: 0.02em;
 }
 .breadcrumb-sep {
@@ -494,8 +538,8 @@ textarea:focus {
   letter-spacing: 0.01em;
 }
 .secret-field-value {
-  font-size: 12px;
-  font-family: "SF Mono", ui-monospace, "Cascadia Code", "Fira Code", monospace;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
   word-break: break-all;
   color: var(--color-muted);
   letter-spacing: 0.03em;
@@ -506,27 +550,43 @@ textarea:focus {
   display: flex;
   border-bottom: var(--border);
   flex-shrink: 0;
-  background: var(--color-surface);
+  background: var(--color-bg);
+  gap: 2px;
+  padding: 0 6px;
 }
 .tab-btn {
-  padding: 8px 16px;
+  position: relative;
+  padding: 10px 14px;
   font-size: var(--font-size-sm);
   font-family: var(--font-family);
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
   cursor: pointer;
   color: var(--color-muted);
-  transition: color 0.15s, border-color 0.15s;
   font-weight: 500;
   letter-spacing: 0.02em;
+  transition: color 0.18s;
 }
+.tab-btn::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--color-accent);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tab-btn:hover { color: var(--color-text); }
 .tab-btn.active {
   color: var(--color-accent);
-  border-bottom-color: var(--color-accent);
   font-weight: 700;
 }
-.tab-btn:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+.tab-btn.active::after { transform: scaleX(1); }
+.tab-btn:focus-visible { outline: none; box-shadow: var(--ring); border-radius: var(--radius-sm); }
 
 /* ── Key-value editor (SecretForm) ───────────────────────────────────────── */
 .kv-row {
@@ -590,7 +650,7 @@ textarea:focus {
 .text-sm      { font-size: var(--font-size-sm); }
 .text-xs      { font-size: var(--font-size-xs); }
 .text-center  { text-align: center; }
-.font-mono    { font-family: "SF Mono", ui-monospace, "Cascadia Code", "Fira Code", monospace; }
+.font-mono    { font-family: var(--font-mono); }
 .font-bold    { font-weight: 600; }
 .font-semibold{ font-weight: 500; }
 
@@ -610,26 +670,33 @@ textarea:focus {
 /* ── Options page wrapper ────────────────────────────────────────────────── */
 .options-page {
   min-height: 100vh;
-  background: var(--color-surface);
+  background:
+    radial-gradient(90% 60% at 50% -10%, var(--color-header-glow), transparent 60%),
+    var(--color-bg);
 }
 .options-header {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: 16px 24px;
+  padding: 20px 28px;
   background: var(--color-header-bg);
   border-bottom: 1px solid var(--color-header-border);
 }
 .options-header-title {
+  font-family: var(--font-serif);
+  font-style: italic;
   font-size: var(--font-size-lg);
-  font-weight: 700;
+  font-weight: 650;
   color: var(--color-header-text);
   letter-spacing: -0.01em;
 }
 .options-header-sub {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   color: var(--color-header-muted);
-  margin-top: 1px;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 600;
 }
 .options-body {
   max-width: 520px;
@@ -639,7 +706,23 @@ textarea:focus {
 .options-card {
   background: var(--color-surface-raised);
   border: var(--border);
+  border-bottom-width: 2px;
   border-radius: var(--radius-xl);
   padding: var(--space-6);
   box-shadow: var(--shadow-md);
+}
+
+/* ── Popup entrance ─────────────────────────────────────────────────────── */
+@keyframes vault-rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+#root > * {
+  animation: vault-rise 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Loading spinner — brass thread ─────────────────────────────────────── */
+.spinner {
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  border-top-color: var(--color-accent);
 }
