@@ -116,7 +116,7 @@ p  { color: var(--color-muted); }
   border-radius: var(--radius-md);
   padding: 2px 8px 2px 7px;
   flex-shrink: 0;
-  max-width: 150px;
+  max-width: 210px;
 }
 .ns-picker-label {
   font-size: var(--font-size-xs);
@@ -124,6 +124,24 @@ p  { color: var(--color-muted); }
   color: var(--color-muted);
   letter-spacing: 0.04em;
   flex-shrink: 0;
+}
+/* Compact arrow buttons for parent / root namespace navigation */
+.ns-nav-btn {
+  padding: 2px 6px;
+  font-size: var(--font-size-xs);
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+/* Read-only namespace display (Password Manager mode) */
+.ns-picker-static {
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono, "SF Mono", ui-monospace, monospace);
+  padding: 2px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .ns-picker-select,
 .ns-picker-input {

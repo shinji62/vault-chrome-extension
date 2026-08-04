@@ -12,6 +12,9 @@ export const SEARCH_PM_SECRETS_BY_URL = 'SEARCH_PM_SECRETS_BY_URL' as const;
 export const SAVE_PM_SECRET = 'SAVE_PM_SECRET' as const;
 export const LIST_PM_PASSWORD_POLICIES = 'LIST_PM_PASSWORD_POLICIES' as const;
 export const GENERATE_PM_PASSWORD = 'GENERATE_PM_PASSWORD' as const;
+export const STORE_PM_PENDING_SAVE = 'STORE_PM_PENDING_SAVE' as const;
+export const GET_PM_PENDING_SAVE = 'GET_PM_PENDING_SAVE' as const;
+export const CLEAR_PM_PENDING_SAVE = 'CLEAR_PM_PENDING_SAVE' as const;
 
 // Message interfaces
 export interface LookupTokenMessage {
@@ -83,6 +86,28 @@ export interface GeneratePmPasswordMessage {
   policyName: string;
 }
 
+export interface StorePmPendingSaveMessage {
+  type: typeof STORE_PM_PENDING_SAVE;
+  username: string;
+  password: string;
+}
+
+export interface GetPmPendingSaveMessage {
+  type: typeof GET_PM_PENDING_SAVE;
+}
+
+export interface ClearPmPendingSaveMessage {
+  type: typeof CLEAR_PM_PENDING_SAVE;
+}
+
+/** Credentials captured from a submitted login form, persisted so the auto-save
+ *  prompt can be shown after a full-page navigation destroys the submit page. */
+export interface PendingPmSave {
+  username: string;
+  password: string;
+  storedAt: number;
+}
+
 // Discriminated union of all message types
 export type ExtensionMessage =
   | LookupTokenMessage
@@ -95,7 +120,10 @@ export type ExtensionMessage =
   | SearchPmSecretsByUrlMessage
   | SavePmSecretMessage
   | ListPmPasswordPoliciesMessage
-  | GeneratePmPasswordMessage;
+  | GeneratePmPasswordMessage
+  | StorePmPendingSaveMessage
+  | GetPmPendingSaveMessage
+  | ClearPmPendingSaveMessage;
 
 // Typed response wrapper
 export type BackgroundResponse<T> = { success: true; data: T } | { success: false; error: string };
@@ -114,3 +142,6 @@ export type SearchPmSecretsByUrlResponse = BackgroundResponse<
 export type SavePmSecretResponse = BackgroundResponse<void>;
 export type ListPmPasswordPoliciesResponse = BackgroundResponse<string[]>;
 export type GeneratePmPasswordResponse = BackgroundResponse<string>;
+export type StorePmPendingSaveResponse = BackgroundResponse<void>;
+export type GetPmPendingSaveResponse = BackgroundResponse<PendingPmSave | undefined>;
+export type ClearPmPendingSaveResponse = BackgroundResponse<void>;

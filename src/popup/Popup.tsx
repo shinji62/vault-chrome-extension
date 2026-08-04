@@ -65,7 +65,7 @@ function readMode(): 'secrets' | 'passwords' {
 
 export function Popup() {
   const client = useVaultClient();
-  const { settings, rootNamespace, loading: settingsLoading, updateNamespace } = useSettings();
+  const { settings, rootNamespace, token, loading: settingsLoading, updateNamespace } = useSettings();
   const { tokenInfo: fetchedTokenInfo, loading: tokenLoading } = useTokenStatus();
   const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(null);
   const [screen, setScreen] = useState<Screen>({ id: 'not-connected' });
@@ -203,6 +203,8 @@ export function Popup() {
         tokenInfo={tokenInfo}
         onNamespaceChange={updateNamespace}
         onOpenSettings={openSettings}
+        mode={mode}
+        pmNamespace={settings?.pmNamespace}
         themeToggle={
           <button
             className="btn-ghost-header"
@@ -220,9 +222,9 @@ export function Popup() {
       <ModeTabBar mode={mode} onSelect={setMode} />
 
       {/* ── Passwords mode ── */}
-      {mode === 'passwords' && settings && (
+      {mode === 'passwords' && settings && token && (
         <PasswordManager
-          client={vaultClient}
+          client={new VaultClient({ ...settings, namespace: settings.pmNamespace || undefined }, token)}
           settings={settings}
           onOpenSettings={openSettings}
         />

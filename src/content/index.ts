@@ -1,7 +1,12 @@
 import { detectLoginForms, observeForms, LoginForm } from './formDetector';
 import { attachFillOverlay, detachAllOverlays } from './fillOverlay';
 import { showSavePrompt, hideSavePrompt } from './savePrompt';
-import { searchPmSecretsByUrl } from './messaging';
+import {
+  searchPmSecretsByUrl,
+  storePmPendingSave,
+  getPmPendingSave,
+  clearPmPendingSave,
+} from './messaging';
 import { FILL_CREDENTIALS } from '../types/messages';
 import { setNativeValue } from './domUtils';
 import { Settings } from '../types/settings';
@@ -11,6 +16,11 @@ import { Settings } from '../types/settings';
 // ---------------------------------------------------------------------------
 
 const submittedFields = new WeakSet<HTMLInputElement>();
+
+// Delay before showing the prompt on a same-page (SPA) submit. Long enough to
+// let a full-page login navigation unload this document, so the prompt is only
+// shown here when no navigation actually happened (see maybeShowPendingSave).
+const SPA_SAVE_DELAY_MS = 600;
 
 function attachSubmitListener(loginForm: LoginForm): void {
   const { form, usernameField, passwordField } = loginForm;
@@ -29,23 +39,50 @@ function attachSubmitListener(loginForm: LoginForm): void {
 
       if (!password) return; // nothing to save
 
-      // Check after a short delay to handle SPA navigations that don't reload
+      // Persist for the "save after login" flow. getPmPendingSave matches on
+      // this tab, so a full-page navigation keeps the credentials long enough
+      // for the post-login document to show the prompt.
+      void storePmPendingSave(username, password).catch(() => {
+        // Background not ready — the auto-save prompt simply won't appear.
+      });
+
+      // SPA submit (no navigation): the document stays alive, so show now.
       setTimeout(() => {
-        void (async () => {
-          try {
-            const matches = await searchPmSecretsByUrl(window.location.href);
-            if (matches.length === 0) {
-              hideSavePrompt();
-              showSavePrompt(username, password);
-            }
-          } catch {
-            // Background not ready — skip silently
-          }
-        })();
-      }, 500);
+        void maybeShowPendingSave();
+      }, SPA_SAVE_DELAY_MS);
     },
     { capture: true },
   );
+}
+
+/**
+ * Show the auto-save prompt if the user just submitted a login form for which
+ * Vault has no matching secret. Called both after a same-page submit and on
+ * every content-script load (so it survives a full-page login navigation).
+ */
+async function maybeShowPendingSave(): Promise<void> {
+  let pending;
+  try {
+    pending = await getPmPendingSave();
+  } catch {
+    return; // background not ready — skip silently
+  }
+  if (!pending) return;
+
+  try {
+    const matches = await searchPmSecretsByUrl(window.location.href);
+    if (matches.length > 0) {
+      // A secret already exists for this site — drop the pending copy.
+      void clearPmPendingSave();
+      return;
+    }
+  } catch {
+    // Background not ready — leave the pending save in place.
+    return;
+  }
+
+  hideSavePrompt();
+  showSavePrompt(pending.username, pending.password);
 }
 
 // ---------------------------------------------------------------------------
@@ -100,4 +137,8 @@ chrome.storage.local.get(['vaultSettings'], (result) => {
   observeForms((forms) => {
     wireLoginForms(forms);
   });
+
+  // 3. If the user just submitted a login form that navigated to this page,
+  //    show the prompt now that the (possibly form-less) page has loaded.
+  void maybeShowPendingSave();
 });

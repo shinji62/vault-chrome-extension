@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vault - Save prompt preview</title>
+<link rel="stylesheet" href="../src/styles/content.css" />
+<style>
+  html, body { height: 100%; margin: 0; font-family: "Manrope", -apple-system, system-ui, sans-serif; }
+  .page { min-height: 100vh; background: linear-gradient(160deg,#f6f3ed,#ece7dc); padding: 48px 64px; color: #201d17; }
+  .site-card { max-width: 820px; margin: 0 auto; background: #fdfbf6; border: 1px solid #dcd5c6; border-radius: 18px; padding: 40px 44px; box-shadow: 0 2px 5px rgba(35,28,12,.06), 0 14px 34px rgba(35,28,12,.10); }
+  .site-title { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 4px; }
+  .site-sub { color: #7a7363; font-size: 14px; margin: 0 0 26px; }
+  .site-label { font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #7a7363; margin: 18px 0 6px; }
+  .site-input { width: 100%; max-width: 320px; padding: 11px 14px; border: 1px solid #dcd5c6; border-radius: 10px; font-size: 14px; background: #fff; box-sizing: border-box; }
+  .site-btn { background: #171309; color: #f3eddc; border: none; border-radius: 10px; padding: 11px 18px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 22px; }
+  .vault-save-banner .vault-save-title small { display: block; }
+  .page-tag { position: fixed; top: 18px; right: 22px; background: #171309; color: #f3eddc; font-size: 12px; font-weight: 600; padding: 7px 14px; border-radius: 20px; letter-spacing: .02em; z-index: 5; }
+</style>
+</head>
+<body>
+<div class="page-tag">BRASS VAULT &middot; save prompt</div>
+
+<div class="page">
+  <div class="site-card">
+    <div class="site-title">ExampleCorp &mdash; Dashboard</div>
+    <div class="site-sub">Signed in as <strong>alice@example.com</strong></div>
+    <div class="site-label">Email</div>
+    <input class="site-input" type="text" value="alice@example.com" />
+    <div class="site-label">Password</div>
+    <input class="site-input" type="password" value="sup3rS3cret!" />
+    <div><button class="site-btn">Sign in</button></div>
+  </div>
+</div>
+
+<!-- The save prompt: same classes &amp; structure as savePrompt.ts, styled by the real content.css -->
+<div class="vault-save-backdrop" style="display:flex;">
+  <div class="vault-save-banner" role="dialog" aria-label="Save to Vault">
+    <div class="vault-save-header">
+      <span class="vault-save-icon" aria-hidden="true">&#128273;</span>
+      <span class="vault-save-title">Save to Vault?<small>Add password for example.com</small></span>
+      <button class="vault-save-close" type="button" aria-label="Dismiss">&times;</button>
+    </div>
+    <div class="vault-save-field">
+      <label class="vault-save-label">Label</label>
+      <input class="vault-save-input" type="text" value="example.com" placeholder="e.g. github.com" />
+    </div>
+    <div class="vault-save-user">
+      <span class="vault-save-user-tag">User</span>
+      <span>alice@example.com</span>
+    </div>
+    <div class="vault-save-gen">
+      <button class="vault-save-gen-link" type="button">Generate password&hellip;</button>
+      <select class="vault-save-gen-select" style="display:none;"></select>
+      <span class="vault-save-gen-display" style="display:none;"></span>
+    </div>
+    <div class="vault-save-actions">
+      <button class="vault-save-btn vault-save-btn-primary" type="button">Save</button>
+      <button class="vault-save-btn vault-save-btn-ghost" type="button">Cancel</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

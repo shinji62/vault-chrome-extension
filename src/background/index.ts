@@ -2,18 +2,22 @@ import { VaultClient } from '../api/vaultClient';
 import { Settings } from '../types/settings';
 import {
   BackgroundResponse,
+  CLEAR_PM_PENDING_SAVE,
   ExtensionMessage,
   FILL_CREDENTIALS,
   GENERATE_PM_PASSWORD,
+  GET_PM_PENDING_SAVE,
   GET_SECRET,
   LIST_PM_PASSWORD_POLICIES,
   LOOKUP_TOKEN,
   OIDC_LOGIN,
+  PendingPmSave,
   RENEW_TOKEN,
   SAVE_PM_SECRET,
   SAVE_SECRET,
   SEARCH_PM_SECRETS_BY_URL,
   SEARCH_SECRETS_BY_URL,
+  STORE_PM_PENDING_SAVE,
 } from '../types/messages';
 import { TokenInfo } from '../types/vault';
 import { scheduleRenewal, cancelRenewal } from './renewalScheduler';
@@ -46,6 +50,15 @@ function storageSessionGet<T>(keys: string[]): Promise<Record<string, T>> {
 function storageSessionSet(items: Record<string, unknown>): Promise<void> {
   return new Promise((resolve) => chrome.storage.session.set(items, () => resolve()));
 }
+
+function storageSessionRemove(keys: string[]): Promise<void> {
+  return new Promise((resolve) => chrome.storage.session.remove(keys, () => resolve()));
+}
+
+// Auto-save prompt freshness window. A pending save older than this (e.g. from a
+// previous session or a stale tab) is dropped instead of re-shown.
+const PENDING_SAVE_TTL_MS = 60_000;
+const pendingSaveKey = (tabId: number): string => `pmPendingSave_${tabId}`;
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
@@ -240,8 +253,8 @@ async function searchSecretsByUrl(
 // ---------------------------------------------------------------------------
 
 chrome.runtime.onMessage.addListener(
-  (message: ExtensionMessage, _sender, sendResponse): true => {
-    handleMessage(message)
+  (message: ExtensionMessage, sender, sendResponse): true => {
+    handleMessage(message, sender)
       .then(sendResponse)
       .catch((e: unknown) => {
         const error = e instanceof Error ? e.message : String(e);
@@ -253,7 +266,10 @@ chrome.runtime.onMessage.addListener(
   },
 );
 
-async function handleMessage(message: ExtensionMessage): Promise<BackgroundResponse<unknown>> {
+async function handleMessage(
+  message: ExtensionMessage,
+  sender: chrome.runtime.MessageSender,
+): Promise<BackgroundResponse<unknown>> {
   switch (message.type) {
     case LOOKUP_TOKEN: {
       if (!client) return { success: false, error: 'Vault client not initialised' };
@@ -332,6 +348,36 @@ async function handleMessage(message: ExtensionMessage): Promise<BackgroundRespo
       if (!pmClient) return { success: false, error: 'PM client not initialised' };
       const generated = await pmClient.generatePassword(message.policyName);
       return { success: true, data: generated };
+    }
+
+    case STORE_PM_PENDING_SAVE: {
+      if (sender.tab?.id == null) return { success: true, data: undefined };
+      const pending: PendingPmSave = {
+        username: message.username,
+        password: message.password,
+        storedAt: Date.now(),
+      };
+      await storageSessionSet({ [pendingSaveKey(sender.tab.id)]: pending });
+      return { success: true, data: undefined };
+    }
+
+    case GET_PM_PENDING_SAVE: {
+      if (sender.tab?.id == null) return { success: true, data: undefined };
+      const key = pendingSaveKey(sender.tab.id);
+      const stored = await storageSessionGet<PendingPmSave>([key]);
+      const pending = stored[key];
+      if (!pending) return { success: true, data: undefined };
+      if (Date.now() - pending.storedAt > PENDING_SAVE_TTL_MS) {
+        await storageSessionRemove([key]);
+        return { success: true, data: undefined };
+      }
+      return { success: true, data: pending };
+    }
+
+    case CLEAR_PM_PENDING_SAVE: {
+      if (sender.tab?.id == null) return { success: true, data: undefined };
+      await storageSessionRemove([pendingSaveKey(sender.tab.id)]);
+      return { success: true, data: undefined };
     }
 
     // FILL_CREDENTIALS targets the content script (popup -> active tab) and is

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Vault — Settings</title>
+<link rel="stylesheet" href="screens.css" />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Fraunces:wght@500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div class="page-options">
+    <h1>⚙ Settings</h1>
+    <p style="color:var(--color-muted); margin-top:4px; font-size:var(--font-size-sm);">
+      Connect to HashiCorp Vault and configure the Password Manager.
+    </p>
+
+    <fieldset class="fieldset">
+      <legend>Connection</legend>
+      <div class="row2">
+        <div class="field wide">
+          <label>Vault URL</label>
+          <input class="input" value="https://vault.example.com" readonly />
+        </div>
+        <div class="field">
+          <label>Namespace <span class="label-optional">(optional)</span></label>
+          <input class="input" value="admin" readonly />
+        </div>
+        <div class="field">
+          <label>Authentication method</label>
+          <input class="input" value="token" readonly />
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset class="fieldset">
+      <legend>Password Manager</legend>
+      <div class="growrow">
+        <div class="field wide">
+          <label>PM Namespace <span class="label-optional">(optional — leave empty for root)</span></label>
+          <input class="input" value="team/passwords" readonly />
+        </div>
+        <div class="field">
+          <label>KV v2 Mount <span class="label-optional">(default: secret)</span></label>
+          <input class="input" value="secret" readonly />
+        </div>
+      </div>
+    </fieldset>
+
+    <div style="display:flex; gap:10px; margin-top:22px;">
+      <button class="btn btn-primary">Verify &amp; Save</button>
+      <button class="btn">Disconnect</button>
+    </div>
+  </div>
+</body>
+</html>

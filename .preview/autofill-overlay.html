@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Vault — Auto-fill overlay</title>
+<link rel="stylesheet" href="screens.css" />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div style="padding:40px;">
+    <div class="webpage" style="position:relative;">
+      <h2 style="font-size:18px; margin-bottom:16px;">Sign in to GitHub</h2>
+      <div style="font-size:12px; color:#888; margin-bottom:6px;">Username</div>
+      <div class="fake-input">octocat</div>
+      <div style="font-size:12px; color:#888; margin:14px 0 6px;">Password</div>
+      <div class="field-wrap">
+        <div class="fake-input">••••••••••••</div>
+        <div class="vault-fill-btn">🔒</div>
+        <div class="fill-dropdown">
+          <div class="fill-title">Matching credentials</div>
+          <div class="fill-item">
+            <span style="font-size:14px;">🔑</span>
+            <span><span class="nm">github.com</span><div class="mt">secret · password-manager</div></span>
+            <span class="si">⏎</span>
+          </div>
+          <div class="fill-item">
+            <span style="font-size:14px;">🔑</span>
+            <span><span class="nm">GitHub (work)</span><div class="mt">secret · password-manager</div></span>
+            <span class="si">⏎</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

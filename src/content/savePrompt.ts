@@ -1,5 +1,5 @@
 import promptCSS from '../styles/content.css?inline';
-import { savePmSecret, listPmPasswordPolicies, generatePmPassword } from './messaging';
+import { savePmSecret, listPmPasswordPolicies, generatePmPassword, clearPmPendingSave } from './messaging';
 
 const PROMPT_CSS = `:host { all: initial; display: contents; }\n${promptCSS}`;
 
@@ -32,7 +32,7 @@ function ensureHost(): ShadowRoot {
 // ---------------------------------------------------------------------------
 
 export function showSavePrompt(username: string, capturedPassword: string): void {
-  // Only one banner at a time
+  // Only one prompt at a time
   hideSavePrompt();
 
   const root = ensureHost();
@@ -40,15 +40,28 @@ export function showSavePrompt(username: string, capturedPassword: string): void
   // Mutable password — may be replaced by the generator
   let password = capturedPassword;
 
+  // Dismiss removes the prompt and forgets the pending credentials so the
+  // prompt is not re-shown on a later visit to the site.
+  const dismiss = (): void => {
+    hideSavePrompt();
+    void clearPmPendingSave();
+  };
+
+  // ── Backdrop (modal scrim + centering) ──────────────────────────────────
+  const backdrop = document.createElement('div');
+  backdrop.id = 'vault-save-backdrop';
+  backdrop.className = 'vault-save-backdrop';
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) dismiss();
+  });
+
   const banner = document.createElement('div');
   banner.id = 'vault-save-banner';
   banner.className = 'vault-save-banner';
-  // Wider banner to accommodate the extra fields
-  banner.style.cssText = 'flex-direction: column; align-items: stretch; gap: 8px; min-width: 280px;';
 
   // ── Header row ──────────────────────────────────────────────────────────
   const headerRow = document.createElement('div');
-  headerRow.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+  headerRow.className = 'vault-save-header';
 
   const icon = document.createElement('span');
   icon.className = 'vault-save-icon';
@@ -59,14 +72,18 @@ export function showSavePrompt(username: string, capturedPassword: string): void
   const title = document.createElement('span');
   title.className = 'vault-save-title';
   title.textContent = 'Save to Vault?';
-  title.style.flex = '1';
+
+  const subtitle = document.createElement('small');
+  subtitle.textContent = `Add password for ${new URL(window.location.href).hostname}`;
+  title.appendChild(subtitle);
   headerRow.appendChild(title);
 
   const dismissBtn = document.createElement('button');
-  dismissBtn.className = 'vault-save-btn vault-save-btn-ghost';
+  dismissBtn.type = 'button';
+  dismissBtn.className = 'vault-save-close';
   dismissBtn.textContent = '✕';
   dismissBtn.setAttribute('aria-label', 'Dismiss');
-  dismissBtn.addEventListener('click', hideSavePrompt);
+  dismissBtn.addEventListener('click', dismiss);
   headerRow.appendChild(dismissBtn);
 
   banner.appendChild(headerRow);
@@ -75,44 +92,54 @@ export function showSavePrompt(username: string, capturedPassword: string): void
   const defaultLabel = new URL(window.location.href).hostname;
 
   const labelRow = document.createElement('div');
-  labelRow.style.cssText = 'display: flex; flex-direction: column; gap: 2px;';
+  labelRow.className = 'vault-save-field';
 
   const labelLbl = document.createElement('label');
+  labelLbl.className = 'vault-save-label';
   labelLbl.textContent = 'Label';
-  labelLbl.style.cssText = 'font-size: 11px; color: var(--color-text-muted, #666);';
   labelRow.appendChild(labelLbl);
 
   const labelInput = document.createElement('input');
   labelInput.type = 'text';
+  labelInput.className = 'vault-save-input';
   labelInput.value = defaultLabel;
   labelInput.placeholder = 'e.g. github.com';
-  labelInput.style.cssText = 'font-size: 12px; padding: 4px 6px; border-radius: 4px; border: 1px solid var(--color-border, #ccc); background: var(--color-input-bg, #fff); color: var(--color-text, #000); width: 100%;';
   labelRow.appendChild(labelInput);
   banner.appendChild(labelRow);
 
   // ── Username (read-only display) ─────────────────────────────────────────
   const userRow = document.createElement('div');
-  userRow.style.cssText = 'font-size: 11px; color: var(--color-text-muted, #666);';
-  userRow.textContent = `Username: ${username || '(none)'}`;
+  userRow.className = 'vault-save-user';
+
+  const userTag = document.createElement('span');
+  userTag.className = 'vault-save-user-tag';
+  userTag.textContent = 'User';
+  userRow.appendChild(userTag);
+
+  const userVal = document.createElement('span');
+  userVal.textContent = username || '(none)';
+  userRow.appendChild(userVal);
   banner.appendChild(userRow);
 
   // ── Generate password row ────────────────────────────────────────────────
   const generateRow = document.createElement('div');
-  generateRow.style.cssText = 'display: flex; align-items: center; gap: 6px; flex-wrap: wrap;';
+  generateRow.className = 'vault-save-gen';
 
   const generateLink = document.createElement('button');
-  generateLink.className = 'vault-save-btn vault-save-btn-ghost';
+  generateLink.type = 'button';
+  generateLink.className = 'vault-save-gen-link';
   generateLink.textContent = 'Generate password…';
-  generateLink.style.fontSize = '11px';
   generateRow.appendChild(generateLink);
 
   // Policy picker (hidden until Generate is clicked)
   const policySelect = document.createElement('select');
-  policySelect.style.cssText = 'display: none; font-size: 11px; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--color-border, #ccc); background: var(--color-input-bg, #fff); color: var(--color-text, #000);';
+  policySelect.className = 'vault-save-gen-select';
+  policySelect.style.display = 'none';
   generateRow.appendChild(policySelect);
 
   const generatedDisplay = document.createElement('span');
-  generatedDisplay.style.cssText = 'display: none; font-size: 11px; font-family: monospace; color: var(--color-text-muted, #666); word-break: break-all;';
+  generatedDisplay.className = 'vault-save-gen-display';
+  generatedDisplay.style.display = 'none';
   generateRow.appendChild(generatedDisplay);
 
   generateLink.addEventListener('click', () => {
@@ -172,9 +199,10 @@ export function showSavePrompt(username: string, capturedPassword: string): void
 
   // ── Action buttons ───────────────────────────────────────────────────────
   const actions = document.createElement('div');
-  actions.style.cssText = 'display: flex; gap: 6px; padding-top: 4px;';
+  actions.className = 'vault-save-actions';
 
   const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
   saveBtn.className = 'vault-save-btn vault-save-btn-primary';
   saveBtn.textContent = 'Save';
   saveBtn.addEventListener('click', () =>
@@ -184,13 +212,14 @@ export function showSavePrompt(username: string, capturedPassword: string): void
 
   banner.appendChild(actions);
 
-  root.appendChild(banner);
+  backdrop.appendChild(banner);
+  root.appendChild(backdrop);
 }
 
 export function hideSavePrompt(): void {
   if (!shadowRoot) return;
-  const banner = shadowRoot.getElementById('vault-save-banner');
-  if (banner) banner.remove();
+  const backdrop = shadowRoot.getElementById('vault-save-backdrop');
+  if (backdrop) backdrop.remove();
 }
 
 // ---------------------------------------------------------------------------
@@ -215,18 +244,31 @@ async function handleSave(
     saveBtn.disabled = false;
     saveBtn.textContent = 'Save';
     const status = document.createElement('span');
-    status.className = 'vault-save-success';
-    status.style.color = '#f85149';
-    status.textContent = `Error: ${String(err)}`;
+    status.className = 'vault-save-error';
+    const icon = document.createElement('span');
+    icon.className = 'vault-save-status-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = '✕';
+    status.appendChild(icon);
+    status.appendChild(document.createTextNode(`Error: ${String(err)}`));
     banner.appendChild(status);
     return;
   }
+
+  // Credentials are stored — forget the pending save so the prompt is not
+  // re-shown on a later visit to the site.
+  void clearPmPendingSave();
 
   // Show "Saved!" confirmation and auto-dismiss after 2 s
   saveBtn.remove();
   const status = document.createElement('span');
   status.className = 'vault-save-success';
-  status.textContent = 'Saved!';
+  const icon = document.createElement('span');
+  icon.className = 'vault-save-status-icon';
+  icon.setAttribute('aria-hidden', 'true');
+  icon.textContent = '✓';
+  status.appendChild(icon);
+  status.appendChild(document.createTextNode('Saved!'));
   banner.appendChild(status);
 
   setTimeout(hideSavePrompt, 2000);
