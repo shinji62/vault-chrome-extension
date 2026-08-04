@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { VaultClient } from '../../api/vaultClient';
 import { MetadataPanel } from './MetadataPanel';
+import { FILL_CREDENTIALS } from '../../types/messages';
 
 interface SecretDetailProps {
   client: VaultClient;
@@ -54,6 +55,12 @@ const TrashIcon = () => (
   </svg>
 );
 
+const FillIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <path d="M12.65 10A6 6 0 1 0 12 15h1l1.5 1.5 1.5-1.5 1.5 1.5 1.5-1.5L21 17l-2-2v-3.5L12.65 10zM7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z" fill="currentColor"/>
+  </svg>
+);
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function SecretDetail({
@@ -72,6 +79,8 @@ export function SecretDetail({
   const [copied, setCopied] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [filling, setFilling] = useState(false);
+  const [fillStatus, setFillStatus] = useState<'idle' | 'ok' | 'err'>('idle');
   const [activeTab, setActiveTab] = useState<Tab>('data');
 
   const handleRetrieve = () => {
@@ -102,6 +111,32 @@ export function SecretDetail({
       .deleteSecret(mount, path, kvVersion)
       .then(() => onDelete())
       .catch((e: Error) => { setError(e.message); setDeleting(false); setConfirmDelete(false); });
+  };
+
+  const handleFill = () => {
+    setFilling(true);
+    setFillStatus('idle');
+    const doFill = async () => {
+      // Fetch the secret if not already loaded
+      const secretData = data ?? await client.readSecret(mount, path, kvVersion);
+      if (!data) setData(secretData);
+
+      const username = secretData['username'] ?? '';
+      const password = secretData['password'] ?? '';
+
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.id) throw new Error('No active tab');
+
+      await chrome.tabs.sendMessage(tab.id, {
+        type: FILL_CREDENTIALS,
+        username,
+        password,
+      });
+    };
+    doFill()
+      .then(() => { setFillStatus('ok'); setTimeout(() => setFillStatus('idle'), 2000); })
+      .catch(() => setFillStatus('err'))
+      .finally(() => setFilling(false));
   };
 
   const secretName = path.split('/').pop() ?? path;
@@ -166,6 +201,18 @@ export function SecretDetail({
           style={{ display: 'flex', alignItems: 'center', gap: 4 }}
         >
           <TrashIcon /> Delete
+        </button>
+        <button
+          className="btn btn-sm btn-primary"
+          onClick={handleFill}
+          disabled={filling}
+          aria-label="Fill credentials into active tab"
+          title="Fill username &amp; password into the active tab's login form"
+          style={{ display: 'flex', alignItems: 'center', gap: 4,
+            color: fillStatus === 'ok' ? 'var(--color-success)' : fillStatus === 'err' ? 'var(--color-danger)' : undefined }}
+        >
+          {filling ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <FillIcon />}
+          {fillStatus === 'ok' ? 'Filled!' : fillStatus === 'err' ? 'Failed' : 'Fill'}
         </button>
       </div>
 

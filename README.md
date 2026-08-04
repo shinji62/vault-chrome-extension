@@ -7,7 +7,7 @@ delete KV secrets directly from your browser, with auto-fill and auto-save for l
 
 ## Screenshots
 
-| Options page | Mount picker |
+| Options page (PM settings) | Mount picker |
 |---|---|
 | ![Options page](docs/screenshots/options-page.png) | ![Mount picker](docs/screenshots/mount-picker.png) |
 
@@ -15,9 +15,13 @@ delete KV secrets directly from your browser, with auto-fill and auto-save for l
 |---|---|
 | ![Secret browser](docs/screenshots/secret-browser.png) | ![Secret detail](docs/screenshots/secret-detail.png) |
 
-| Auto-fill overlay | Auto-save banner |
+| Password Manager | Auto-fill overlay |
 |---|---|
-| ![Auto-fill overlay](docs/screenshots/autofill-overlay.png) | ![Auto-save banner](docs/screenshots/autosave-banner.png) |
+| ![Password Manager](docs/screenshots/pm-credentials.png) | ![Auto-fill overlay](docs/screenshots/autofill-overlay.png) |
+
+| Auto-save banner |
+|---|
+| ![Auto-save banner](docs/screenshots/autosave-banner.png) |
 
 ---
 
@@ -82,7 +86,9 @@ namespace `admin`:
 
 - The NS picker lists child namespaces as absolute paths: `admin/team-a`, `admin/team-b`.
 - Switching into a child namespace sets the active namespace to its absolute path.
-- The **↩ admin** button in the status bar returns you to `admin`, not the global root.
+- The **↑** button in the status bar moves one level up to the parent namespace.
+- On the **Passwords** page the NS area shows the Password Manager's dedicated namespace
+  (`pmNamespace`, or `(root)` when unset) as read-only text rather than an editable dropdown.
 
 ### Authentication Method
 
@@ -110,6 +116,83 @@ vault token create -policy=default -ttl=24h
 ### Disconnect
 
 Click **Disconnect** to revoke the current Vault token and clear all stored credentials.
+
+---
+
+## Password Manager
+
+The Password Manager is a private, per-user credential vault kept separate from the shared
+Secret Browser. Each user's credentials are stored under their own subtree, keyed by their
+Vault entity ID, so a token can only ever see its own passwords.
+
+### PM Settings
+
+The PM is configured in the **Password Manager** fields of the options page (they are set up
+when you first connect). Both are optional:
+
+| Setting | Meaning | Default |
+|---|---|---|
+| **PM Namespace** | A dedicated Vault namespace for Password Manager storage. Leave empty to use the root namespace. | *(root namespace)* |
+| **KV v2 Mount** | The KV v2 secret mount inside that namespace where credentials are stored. | `secret` |
+
+> The PM is **KV v2 only** — the configured mount must be a KV version 2 secret engine.
+
+### How credentials are stored
+
+Inside the PM mount, each sign-in is stored at a path scoped to the logged-in identity:
+
+```
+{pmMount}/password-manager/{entity_id}/{label}
+```
+
+Where:
+
+- `{pmMount}` is the configured KV v2 mount (default `secret`).
+- `{entity_id}` is the Vault identity entity ID of the logged-in user — this is what keeps
+  every user's credentials isolated from one another.
+- `{label}` is a human-readable name for the credential (e.g. `github.com`).
+
+The extension reads the entity ID from the token's `entity_id` field at login and uses it for
+both storing and searching credentials.
+
+### Example policy
+
+Because the credential path contains the entity ID, a Vault ACL policy must **not** hard-code
+a fixed path. Instead it uses the `{{identity.entity.id}}` template, which Vault resolves at
+request time to the calling token's entity — granting each user access to only their own
+subtree. If you hard-coded a literal path, every user would either share one folder or be
+locked out.
+
+```hcl
+# Each user may manage only their own Password Manager subtree.
+# {{identity.entity.id}} is resolved per-request to the entity ID of the caller, so
+# credentials stay isolated per user.
+
+# Read/write the secret data (username, password).
+path "secret/data/password-manager/{{identity.entity.id}}/*" {
+  capabilities = ["create", "read", "update", "patch", "delete"]
+}
+
+# List credentials, and read/update the url custom-metadata used for auto-fill matching.
+path "secret/metadata/password-manager/{{identity.entity.id}}/*" {
+  capabilities = ["list", "read", "create", "update"]
+}
+
+# Optional: allow the "Generate Password" tool to list and use password policies.
+path "sys/policies/password/*" {
+  capabilities = ["read", "list"]
+}
+```
+
+> Notes on matching:
+> - `secret` is the **KV v2 mount** from the PM settings — adjust it if you mounted the engine
+>   elsewhere (e.g. `vault kv enable -path=kv-v2 kv-v2` → use `kv-v2`).
+> - Listing always operates on a **prefix**, so Vault matches `list` against the `/*` glob form
+>   above rather than a bare folder path — there is no separate rule for the directory itself.
+> - The data/metadata paths are **relative to the namespace the policy is assigned in**. If you
+>   set a **PM Namespace** such as `team/passwords`, create/attach this policy *inside that
+>   namespace* (the relative `secret/...` paths resolve there) — do **not** prefix the paths
+>   with the namespace name.
 
 ---
 
@@ -194,17 +277,19 @@ Auto-fill requires a **KV v2** mount and a `url` field stored in the secret's **
 
 ## Auto-save
 
-After submitting a login form that has no matching Vault secret, a save-credential banner appears
-at the top of the page.
+After submitting a login form that has no matching Vault secret, a **Save to Vault?** popup appears —
+centered over the page with a dimmed backdrop (not a top-of-page banner).
 
 ### How it works
 
-1. The extension detects password field `submit` events.
-2. If no matching secret is found for the current hostname, a banner asks:
+1. The extension detects password field `submit` events and captures the credentials.
+2. The credentials are stored for a short window, so the prompt still appears after a full-page
+   login navigation — you're not rushed before the page reloads.
+3. If no matching secret is found for the current hostname, a popup asks:
    **"Save this password to Vault?"**
-3. Clicking **Save** stores the credentials in the first available KV v2 mount at path
+4. Clicking **Save** stores the credentials in the first available KV v2 mount at path
    `passwords/{hostname}`, e.g. `passwords/github.com`. The `url` metadata field is also set.
-4. Clicking **Dismiss** hides the banner without saving.
+5. Clicking **Dismiss** (or clicking the dimmed area outside the popup) hides it without saving.
 
 > **Note:** Auto-save is KV v2 only. Ensure you have at least one KV v2 mount available.
 
@@ -316,7 +401,7 @@ vault-chrome-extension/
 │   │   ├── index.ts            # Content script entry point
 │   │   ├── formDetector.ts     # Login form detection
 │   │   ├── fillOverlay.ts      # Vault button + credentials dropdown (Shadow DOM)
-│   │   ├── savePrompt.ts       # Save-credential banner (Shadow DOM)
+│   │   ├── savePrompt.ts       # Save-to-Vault popup (Shadow DOM)
 │   │   └── messaging.ts        # Typed sendMessage wrappers
 │   ├── hooks/
 │   │   ├── useSettings.ts      # chrome.storage read/write hook; exposes rootNamespace
@@ -365,6 +450,6 @@ vault-chrome-extension/
 - Token is revoked server-side when you click **Disconnect**.
 - All Vault API calls are made from the background service worker, which avoids CORS issues and
   keeps the token out of the content script context.
-- Content script UI (Vault button, save banner) is rendered inside a **Shadow DOM** to prevent
+- Content script UI (Vault button, save popup) is rendered inside a **Shadow DOM** to prevent
   style injection attacks from host pages.
 # vault-chrome-extension

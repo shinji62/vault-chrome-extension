@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { VaultClient } from '../../api/vaultClient';
 import { VaultMount } from '../../types/vault';
 
@@ -29,29 +29,8 @@ export function MountPicker({ client, onSelectKV }: MountPickerProps) {
     client
       .listMounts()
       .then((all: Record<string, VaultMount>) => {
-        // The API response is either a wrapped { data: { "mount/": {...} } }
-        // or a flat { "mount/": {...} } object.  Detect the wrapped form by
-        // checking that the top-level `data` value is itself a record of mount
-        // objects (has at least one value with a `type` string field).
-        const looksLikeWrapped = (v: unknown): boolean => {
-          if (!v || typeof v !== 'object') return false;
-          const vals = Object.values(v as Record<string, unknown>);
-          return vals.length > 0 && vals.some(
-            (x) => x && typeof x === 'object' && 'type' in (x as object) && typeof (x as Record<string,unknown>).type === 'string'
-          );
-        };
-
-        const mountsData =
-          'data' in all && looksLikeWrapped(all.data)
-            ? (all.data as Record<string, VaultMount>)
-            : all;
-
-        const entries: MountEntry[] = Object.entries(mountsData)
-          .filter(([key, m]) =>
-            key !== '' &&
-            typeof m === 'object' && m !== null &&
-            (m?.type === 'kv' || m?.type === 'ssh')
-          )
+        const entries: MountEntry[] = Object.entries(all)
+          .filter(([, m]) => (m?.type === 'kv' || m?.type === 'ssh'))
           .map(([key, m]) => {
             const path = key.replace(/\/$/, '');
             if (m.type === 'kv') {

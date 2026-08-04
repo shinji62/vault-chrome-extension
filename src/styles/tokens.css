@@ -1,46 +1,53 @@
-/* ── HashiCorp Vault design tokens ────────────────────────────────────────
-   Light mode  (default)
-   Dark mode   via  @media (prefers-color-scheme: dark)
-                or  [data-theme="dark"]  (manual toggle)
-   ───────────────────────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════
+   THE BRASS VAULT — design system
+   ────────────────────────────────────────────────────────────────────────
+   A premium, tactile "private vault" aesthetic:
+   · Obsidian (dark) / warm bone (light) surfaces
+   · A single gilded-brass accent — the literal key to the vault
+   · Cream ink + hairline borders + soft layered elevation
+   · Manrope (UI) · IBM Plex Mono (keys, paths, secrets) · Fraunces (wordmark)
+
+   Light mode  (default)  ·  Dark mode via prefers-color-scheme or [data-theme]
+   ════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── Brand — HashiCorp Vault ──────────────────────────────────────────── */
-  --color-brand:        #1563FF;   /* HashiCorp blue */
-  --color-brand-dark:   #0F4FCC;   /* pressed / hover */
-  --color-brand-subtle: #E5EEFF;   /* tinted bg */
+  /* ── Brand — gilded brass ─────────────────────────────────────────────── */
+  --color-brand:        #A8763E;   /* brass */
+  --color-brand-dark:   #8A5E2F;   /* pressed */
+  --color-brand-subtle: #F1E6D2;   /* tinted bg */
 
   /* ── Surface ──────────────────────────────────────────────────────────── */
-  --color-bg:            #FFFFFF;
-  --color-surface:       #F5F7FA;
-  --color-surface-raised:#FFFFFF;
-  --color-border:        #DDE1EA;
-  --color-border-subtle: #ECEEF3;
+  --color-bg:            #F6F3ED;  /* bone paper */
+  --color-surface:       #EDE9E0;  /* parchment */
+  --color-surface-raised:#FDFBF6;  /* raised paper */
+  --color-border:        #DCD5C6;
+  --color-border-subtle: #E7E1D3;
 
   /* ── Text ─────────────────────────────────────────────────────────────── */
-  --color-text:        #1A1F36;
-  --color-muted:       #6B7280;
-  --color-placeholder: #9CA3AF;
+  --color-text:        #201D17;    /* warm ink */
+  --color-muted:       #7A7363;
+  --color-placeholder: #A9A191;
 
   /* ── Semantic ─────────────────────────────────────────────────────────── */
-  --color-accent:  #1563FF;
-  --color-success: #007A5E;
-  --color-warning: #B45309;
-  --color-danger:  #C92020;
+  --color-accent:  #A8763E;
+  --color-success: #3C7D5C;
+  --color-warning: #AB7B28;
+  --color-danger:  #BC3B2E;
 
   /* ── TTL badge states ─────────────────────────────────────────────────── */
-  --color-ttl-green:    #007A5E;
-  --color-ttl-amber:    #B45309;
-  --color-ttl-red:      #C92020;
-  --color-ttl-green-bg: #D3F0E8;
-  --color-ttl-amber-bg: #FEF3C7;
-  --color-ttl-red-bg:   #FDE8E8;
+  --color-ttl-green:    #3C7D5C;
+  --color-ttl-amber:    #AB7B28;
+  --color-ttl-red:      #BC3B2E;
+  --color-ttl-green-bg: #E2EFE7;
+  --color-ttl-amber-bg: #F6EADA;
+  --color-ttl-red-bg:   #F8E3DE;
 
-  /* ── Header strip — Vault dark navy ──────────────────────────────────── */
-  --color-header-bg:     #0D1B2A;
-  --color-header-text:   #F0F4FF;
-  --color-header-muted:  rgba(240,244,255,0.55);
-  --color-header-border: rgba(255,255,255,0.10);
+  /* ── Header strip — obsidian ──────────────────────────────────────────── */
+  --color-header-bg:     #171309;   /* near-black warm obsidian */
+  --color-header-text:   #F3EDDC;
+  --color-header-muted:  rgba(243,237,220,0.58);
+  --color-header-border: rgba(243,220,170,0.14);
+  --color-header-glow:   rgba(216,168,62,0.16); /* brass sheen for the strip */
 
   /* ── Spacing ──────────────────────────────────────────────────────────── */
   --space-1: 4px;
@@ -51,124 +58,139 @@
   --space-6: 24px;
 
   /* ── Typography ───────────────────────────────────────────────────────── */
-  --font-family:    -apple-system, "Segoe UI", system-ui, sans-serif;
+  --font-family: "Manrope", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --font-mono:   "IBM Plex Mono", "SF Mono", ui-monospace, "Cascadia Code", Menlo, monospace;
+  --font-serif:  "Fraunces", Georgia, "Times New Roman", serif;
   --font-size-xs:   11px;
-  --font-size-sm:   12px;
-  --font-size-base: 14px;
+  --font-size-sm:   12.5px;
+  --font-size-base: 13.5px;
   --font-size-md:   15px;
-  --font-size-lg:   18px;
-  --line-height:    1.6;
+  --font-size-lg:   19px;
+  --line-height:    1.55;
 
   /* ── Borders & shadows ────────────────────────────────────────────────── */
-  --radius-sm: 5px;
-  --radius-md: 7px;
-  --radius-lg: 10px;
-  --radius-xl: 14px;
+  --radius-sm: 7px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
   --border:     1px solid var(--color-border);
-  --shadow-sm:  0 1px 3px rgba(13,27,42,0.06), 0 1px 2px rgba(13,27,42,0.04);
-  --shadow-md:  0 4px 12px rgba(13,27,42,0.08), 0 2px 4px rgba(13,27,42,0.04);
+  --shadow-sm:  0 1px 2px rgba(35,28,12,0.05), 0 2px 6px rgba(35,28,12,0.04);
+  --shadow-md:  0 2px 5px rgba(35,28,12,0.05), 0 10px 26px rgba(35,28,12,0.08);
+  --ring: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
 
 /* ── Dark mode — via OS preference ─────────────────────────────────────── */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --color-brand:        #4D8EFF;
-    --color-brand-dark:   #3378F0;
-    --color-brand-subtle: #0F1E3F;
+    --color-brand:        #D8A83E;   /* bright gilded brass */
+    --color-brand-dark:   #C08B2D;
+    --color-brand-subtle: #2A2112;
 
-    --color-bg:            #0B1220;
-    --color-surface:       #121929;
-    --color-surface-raised:#182030;
-    --color-border:        #243047;
-    --color-border-subtle: #1C2840;
+    --color-bg:            #12100B;  /* obsidian */
+    --color-surface:       #1A1711;
+    --color-surface-raised:#201C15;
+    --color-border:        #2E281D;
+    --color-border-subtle: #262116;
 
-    --color-text:        #E8EDF8;
-    --color-muted:       #8A96B0;
-    --color-placeholder: #5A6480;
+    --color-text:        #EDE7D8;    /* warm cream */
+    --color-muted:       #9B9280;
+    --color-placeholder: #5F5744;
 
-    --color-accent:  #4D8EFF;
-    --color-success: #2DD4A8;
-    --color-warning: #FBBF24;
-    --color-danger:  #F06060;
+    --color-accent:  #D8A83E;
+    --color-success: #74BE97;
+    --color-warning: #DCA845;
+    --color-danger:  #E0635A;
 
-    --color-ttl-green:    #2DD4A8;
-    --color-ttl-amber:    #FBBF24;
-    --color-ttl-red:      #F06060;
-    --color-ttl-green-bg: #052E20;
-    --color-ttl-amber-bg: #1C1007;
-    --color-ttl-red-bg:   #200A0A;
+    --color-ttl-green:    #74BE97;
+    --color-ttl-amber:    #DCA845;
+    --color-ttl-red:      #E0635A;
+    --color-ttl-green-bg: #14251C;
+    --color-ttl-amber-bg: #271D0D;
+    --color-ttl-red-bg:   #2A1512;
 
-    --color-header-bg:    #060F1A;
-    --color-header-text:  #E8EDF8;
-    --color-header-muted: rgba(232,237,248,0.55);
-    --color-header-border:rgba(255,255,255,0.08);
+    --color-header-bg:    #0B0A06;
+    --color-header-text:  #EDE7D8;
+    --color-header-muted: rgba(237,231,216,0.55);
+    --color-header-border:rgba(216,168,62,0.14);
+    --color-header-glow:  rgba(216,168,62,0.12);
+
+    --shadow-sm:  0 1px 2px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.32);
+    --shadow-md:  0 2px 5px rgba(0,0,0,0.45), 0 12px 30px rgba(0,0,0,0.42);
   }
 }
 
 /* ── Dark mode — via manual data-theme toggle ───────────────────────────── */
 [data-theme="dark"] {
-  --color-brand:        #4D8EFF;
-  --color-brand-dark:   #3378F0;
-  --color-brand-subtle: #0F1E3F;
+  --color-brand:        #D8A83E;
+  --color-brand-dark:   #C08B2D;
+  --color-brand-subtle: #2A2112;
 
-  --color-bg:            #0B1220;
-  --color-surface:       #121929;
-  --color-surface-raised:#182030;
-  --color-border:        #243047;
-  --color-border-subtle: #1C2840;
+  --color-bg:            #12100B;
+  --color-surface:       #1A1711;
+  --color-surface-raised:#201C15;
+  --color-border:        #2E281D;
+  --color-border-subtle: #262116;
 
-  --color-text:        #E8EDF8;
-  --color-muted:       #8A96B0;
-  --color-placeholder: #5A6480;
+  --color-text:        #EDE7D8;
+  --color-muted:       #9B9280;
+  --color-placeholder: #5F5744;
 
-  --color-accent:  #4D8EFF;
-  --color-success: #2DD4A8;
-  --color-warning: #FBBF24;
-  --color-danger:  #F06060;
+  --color-accent:  #D8A83E;
+  --color-success: #74BE97;
+  --color-warning: #DCA845;
+  --color-danger:  #E0635A;
 
-  --color-ttl-green:    #2DD4A8;
-  --color-ttl-amber:    #FBBF24;
-  --color-ttl-red:      #F06060;
-  --color-ttl-green-bg: #052E20;
-  --color-ttl-amber-bg: #1C1007;
-  --color-ttl-red-bg:   #200A0A;
+  --color-ttl-green:    #74BE97;
+  --color-ttl-amber:    #DCA845;
+  --color-ttl-red:      #E0635A;
+  --color-ttl-green-bg: #14251C;
+  --color-ttl-amber-bg: #271D0D;
+  --color-ttl-red-bg:   #2A1512;
 
-  --color-header-bg:    #060F1A;
-  --color-header-text:  #E8EDF8;
-  --color-header-muted: rgba(232,237,248,0.55);
-  --color-header-border:rgba(255,255,255,0.08);
+  --color-header-bg:    #0B0A06;
+  --color-header-text:  #EDE7D8;
+  --color-header-muted: rgba(237,231,216,0.55);
+  --color-header-border:rgba(216,168,62,0.14);
+  --color-header-glow:  rgba(216,168,62,0.12);
+
+  --shadow-sm:  0 1px 2px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.32);
+  --shadow-md:  0 2px 5px rgba(0,0,0,0.45), 0 12px 30px rgba(0,0,0,0.42);
 }
 
 /* ── Light mode forced — via manual data-theme toggle ───────────────────── */
 [data-theme="light"] {
-  --color-brand:        #1563FF;
-  --color-brand-dark:   #0F4FCC;
-  --color-brand-subtle: #E5EEFF;
+  --color-brand:        #A8763E;
+  --color-brand-dark:   #8A5E2F;
+  --color-brand-subtle: #F1E6D2;
 
-  --color-bg:            #FFFFFF;
-  --color-surface:       #F5F7FA;
-  --color-surface-raised:#FFFFFF;
-  --color-border:        #DDE1EA;
-  --color-border-subtle: #ECEEF3;
+  --color-bg:            #F6F3ED;
+  --color-surface:       #EDE9E0;
+  --color-surface-raised:#FDFBF6;
+  --color-border:        #DCD5C6;
+  --color-border-subtle: #E7E1D3;
 
-  --color-text:        #1A1F36;
-  --color-muted:       #6B7280;
-  --color-placeholder: #9CA3AF;
+  --color-text:        #201D17;
+  --color-muted:       #7A7363;
+  --color-placeholder: #A9A191;
 
-  --color-accent:  #1563FF;
-  --color-success: #007A5E;
-  --color-warning: #B45309;
-  --color-danger:  #C92020;
+  --color-accent:  #A8763E;
+  --color-success: #3C7D5C;
+  --color-warning: #AB7B28;
+  --color-danger:  #BC3B2E;
 
-  --color-ttl-green:    #007A5E;
-  --color-ttl-amber:    #B45309;
-  --color-ttl-red:      #C92020;
-  --color-ttl-green-bg: #D3F0E8;
-  --color-ttl-amber-bg: #FEF3C7;
-  --color-ttl-red-bg:   #FDE8E8;
+  --color-ttl-green:    #3C7D5C;
+  --color-ttl-amber:    #AB7B28;
+  --color-ttl-red:      #BC3B2E;
+  --color-ttl-green-bg: #E2EFE7;
+  --color-ttl-amber-bg: #F6EADA;
+  --color-ttl-red-bg:   #F8E3DE;
 
-  --color-header-bg:     #0D1B2A;
-  --color-header-text:   #F0F4FF;
-  --color-header-muted:  rgba(240,244,255,0.55);
-  --color-header-border: rgba(255,255,255,0.10);
+  --color-header-bg:     #171309;
+  --color-header-text:   #F3EDDC;
+  --color-header-muted:  rgba(243,237,220,0.58);
+  --color-header-border: rgba(243,220,170,0.14);
+  --color-header-glow:   rgba(216,168,62,0.16);
+
+  --shadow-sm:  0 1px 2px rgba(35,28,12,0.05), 0 2px 6px rgba(35,28,12,0.04);
+  --shadow-md:  0 2px 5px rgba(35,28,12,0.05), 0 10px 26px rgba(35,28,12,0.08);
 }

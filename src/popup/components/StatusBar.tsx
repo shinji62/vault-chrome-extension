@@ -14,6 +14,10 @@ interface StatusBarProps {
   onOpenSettings: () => void;
   /** Optional theme-toggle button rendered in the header. */
   themeToggle?: React.ReactNode;
+  /** Active popup mode — Secrets uses an interactive NS picker, Passwords shows the PM namespace read-only. */
+  mode?: 'secrets' | 'passwords';
+  /** Dedicated Password Manager namespace (displayed read-only in passwords mode). */
+  pmNamespace?: string;
 }
 
 function formatTTL(seconds: number): string {
@@ -84,11 +88,10 @@ function HeaderNamespacePicker({ client, namespace, rootNamespace, onChange }: H
       {parent !== null && (
         <button
           type="button"
-          className="btn btn-ghost btn-sm"
+          className="btn btn-ghost btn-sm ns-nav-btn"
           onClick={() => onChange(parent)}
           title={`Go to parent namespace${parent ? `: ${parent}` : ' (root)'}`}
           aria-label="Go to parent namespace"
-          style={{ flexShrink: 0, padding: '2px 7px' }}
         >
           ↑
         </button>
@@ -400,7 +403,7 @@ function ToolsMenu({ client }: { client: VaultClient }) {
 // StatusBar
 // ---------------------------------------------------------------------------
 
-export function StatusBar({ connected, namespace, rootNamespace, client, tokenInfo, onNamespaceChange, onOpenSettings, themeToggle }: StatusBarProps) {
+export function StatusBar({ connected, namespace, rootNamespace, client, tokenInfo, onNamespaceChange, onOpenSettings, themeToggle, mode, pmNamespace }: StatusBarProps) {
   const [displayTtl, setDisplayTtl] = useState<number | null>(null);
 
   useEffect(() => {
@@ -462,12 +465,21 @@ export function StatusBar({ connected, namespace, rootNamespace, client, tokenIn
             <>
               <div className="ns-picker-wrapper">
                 <span className="ns-picker-label">NS</span>
-                <HeaderNamespacePicker
-                  client={client}
-                  namespace={namespace ?? rootNamespace ?? ''}
-                  rootNamespace={rootNamespace ?? ''}
-                  onChange={onNamespaceChange}
-                />
+                {mode === 'passwords' ? (
+                  <span
+                    className="ns-picker-static"
+                    title={`Password Manager namespace${pmNamespace ? `: ${pmNamespace}` : ' (root)'}`}
+                  >
+                    {pmNamespace || '(root)'}
+                  </span>
+                ) : (
+                  <HeaderNamespacePicker
+                    client={client}
+                    namespace={namespace ?? rootNamespace ?? ''}
+                    rootNamespace={rootNamespace ?? ''}
+                    onChange={onNamespaceChange}
+                  />
+                )}
               </div>
             </>
           )}
