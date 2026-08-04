@@ -165,28 +165,34 @@ locked out.
 
 ```hcl
 # Each user may manage only their own Password Manager subtree.
-# {{identity.entity.id}} is resolved per-request to the caller's identity entity ID.
-path "secret/metadata/password-manager/{{identity.entity.id}}" {
-  capabilities = ["list", "read"]
-}
+# {{identity.entity.id}} is resolved per-request to the entity ID of the caller, so
+# credentials stay isolated per user.
 
-path "secret/metadata/password-manager/{{identity.entity.id}}/*" {
-  capabilities = ["create", "read", "update", "delete", "list"]
-}
-
+# Read/write the secret data (username, password).
 path "secret/data/password-manager/{{identity.entity.id}}/*" {
-  capabilities = ["create", "read", "update", "delete"]
+  capabilities = ["create", "read", "update", "patch", "delete"]
 }
 
-# Optional: allow the "Generate Password" tool to list and use password policies
+# List credentials, and read/update the url custom-metadata used for auto-fill matching.
+path "secret/metadata/password-manager/{{identity.entity.id}}/*" {
+  capabilities = ["list", "read", "create", "update"]
+}
+
+# Optional: allow the "Generate Password" tool to list and use password policies.
 path "sys/policies/password/*" {
   capabilities = ["read", "list"]
 }
 ```
 
-> `secret` is shown as the mount in the example. Adjust it to match your configured **KV v2
-> Mount**, and prefix the paths with your **PM Namespace** when one is set (e.g.
-> `team/passwords/secret/...`).
+> Notes on matching:
+> - `secret` is the **KV v2 mount** from the PM settings — adjust it if you mounted the engine
+>   elsewhere (e.g. `vault kv enable -path=kv-v2 kv-v2` → use `kv-v2`).
+> - Listing always operates on a **prefix**, so Vault matches `list` against the `/*` glob form
+>   above rather than a bare folder path — there is no separate rule for the directory itself.
+> - The data/metadata paths are **relative to the namespace the policy is assigned in**. If you
+>   set a **PM Namespace** such as `team/passwords`, create/attach this policy *inside that
+>   namespace* (the relative `secret/...` paths resolve there) — do **not** prefix the paths
+>   with the namespace name.
 
 ---
 
