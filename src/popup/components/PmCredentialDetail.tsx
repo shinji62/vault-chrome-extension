@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { VaultClient } from '../../api/vaultClient';
+import { FILL_CREDENTIALS } from '../../types/messages';
 
 interface PmCredentialDetailProps {
   client: VaultClient;
@@ -51,6 +52,12 @@ const TrashIcon = () => (
   </svg>
 );
 
+const FillIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <path d="M12.65 10A6 6 0 1 0 12 15h1l1.5 1.5 1.5-1.5 1.5 1.5 1.5-1.5L21 17l-2-2v-3.5L12.65 10zM7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z" fill="currentColor"/>
+  </svg>
+);
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function PmCredentialDetail({
@@ -70,6 +77,8 @@ export function PmCredentialDetail({
   const [copied, setCopied] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [filling, setFilling] = useState(false);
+  const [fillStatus, setFillStatus] = useState<'idle' | 'ok' | 'err'>('idle');
 
   const label = path.split('/').pop() ?? path;
 
@@ -111,6 +120,33 @@ export function PmCredentialDetail({
       });
   };
 
+  const handleFill = () => {
+    setFilling(true);
+    setFillStatus('idle');
+    const doFill = async () => {
+      // The detail view preloads the secret; if it hasn't loaded yet (or a
+      // refresh was skipped), read fresh so we always fill the latest values.
+      let u = username;
+      let p = password;
+      if (username === '' && password === '') {
+        const data = await client.readSecret(mount, path, 2);
+        u = (data['username'] as string) ?? '';
+        p = (data['password'] as string) ?? '';
+      }
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.id) throw new Error('No active tab');
+      await chrome.tabs.sendMessage(tab.id, {
+        type: FILL_CREDENTIALS,
+        username: u,
+        password: p,
+      });
+    };
+    doFill()
+      .then(() => { setFillStatus('ok'); setTimeout(() => setFillStatus('idle'), 2000); })
+      .catch(() => setFillStatus('err'))
+      .finally(() => setFilling(false));
+  };
+
   const fieldRowStyle: React.CSSProperties = {
     padding: '10px 14px',
     borderBottom: '1px solid var(--color-border-subtle)',
@@ -144,6 +180,18 @@ export function PmCredentialDetail({
             {label}
           </div>
         </div>
+        <button
+          className="btn btn-sm btn-primary"
+          onClick={handleFill}
+          disabled={filling}
+          aria-label="Fill credentials into active tab"
+          title="Fill username &amp; password into the active tab's login form"
+          style={{ display: 'flex', alignItems: 'center', gap: 4,
+            color: fillStatus === 'ok' ? 'var(--color-success)' : fillStatus === 'err' ? 'var(--color-danger)' : undefined }}
+        >
+          {filling ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <FillIcon />}
+          {fillStatus === 'ok' ? 'Filled!' : fillStatus === 'err' ? 'Failed' : 'Fill'}
+        </button>
         <button
           className="btn btn-sm"
           onClick={onEdit}

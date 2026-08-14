@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Extension signing key (never commit the private key)
+.keys/
+
 # Build output
 dist/
 build/

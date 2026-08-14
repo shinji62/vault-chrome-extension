@@ -7,6 +7,8 @@ interface UseSettingsResult {
   rootNamespace: string;
   token: string | null;
   saveSettings: (s: Settings, token: string) => Promise<void>;
+  /** Persists settings without a token (used before an OIDC redirect). */
+  saveSettingsOnly: (s: Settings) => Promise<void>;
   updateNamespace: (namespace: string) => Promise<void>;
   clearSettings: () => Promise<void>;
   loading: boolean;
@@ -68,6 +70,13 @@ export function useSettings(): UseSettingsResult {
     await chrome.storage.session.set({ [TOKEN_KEY]: tok });
   };
 
+  // Persists config without a token. Needed before starting an OIDC flow: the
+  // popup is destroyed when the auth window opens, so anything held only in
+  // React state is lost and the form comes back blank.
+  const saveSettingsOnly = async (s: Settings): Promise<void> => {
+    await chrome.storage.local.set({ [SETTINGS_KEY]: s });
+  };
+
   const updateNamespace = async (namespace: string): Promise<void> => {
     if (!settings) return;
     const updated: Settings = { ...settings, namespace: namespace || undefined };
@@ -79,5 +88,14 @@ export function useSettings(): UseSettingsResult {
     await chrome.storage.session.remove([TOKEN_KEY]);
   };
 
-  return { settings, rootNamespace, token, loading, saveSettings, updateNamespace, clearSettings };
+  return {
+    settings,
+    rootNamespace,
+    token,
+    loading,
+    saveSettings,
+    saveSettingsOnly,
+    updateNamespace,
+    clearSettings,
+  };
 }

@@ -3,14 +3,17 @@ import {
   CLEAR_PM_PENDING_SAVE,
   GENERATE_PM_PASSWORD,
   GET_PM_PENDING_SAVE,
+  GET_PM_PENDING_USERNAME,
   GET_SECRET,
   LIST_PM_PASSWORD_POLICIES,
   PendingPmSave,
+  PendingPmUsername,
   SAVE_PM_SECRET,
   SAVE_SECRET,
   SEARCH_PM_SECRETS_BY_URL,
   SEARCH_SECRETS_BY_URL,
   STORE_PM_PENDING_SAVE,
+  STORE_PM_PENDING_USERNAME,
 } from '../types/messages';
 
 // ---------------------------------------------------------------------------
@@ -55,9 +58,10 @@ export async function saveSecret(
 
 export async function searchPmSecretsByUrl(
   url: string,
-): Promise<Array<{ mount: string; path: string; username: string }>> {
-  const response: BackgroundResponse<Array<{ mount: string; path: string; username: string }>> =
-    await chrome.runtime.sendMessage({ type: SEARCH_PM_SECRETS_BY_URL, url });
+): Promise<Array<{ mount: string; path: string; username: string; password: string }>> {
+  const response: BackgroundResponse<
+    Array<{ mount: string; path: string; username: string; password: string }>
+  > = await chrome.runtime.sendMessage({ type: SEARCH_PM_SECRETS_BY_URL, url });
   if (!response.success) throw new Error(response.error);
   return response.data;
 }
@@ -105,4 +109,20 @@ export async function getPmPendingSave(): Promise<PendingPmSave | undefined> {
 
 export async function clearPmPendingSave(): Promise<void> {
   await chrome.runtime.sendMessage({ type: CLEAR_PM_PENDING_SAVE });
+}
+
+/** Remember a username typed on an earlier step of a multi-page login. */
+export async function storePmPendingUsername(
+  username: string,
+  hostname: string,
+): Promise<void> {
+  await chrome.runtime.sendMessage({ type: STORE_PM_PENDING_USERNAME, username, hostname });
+}
+
+/** Returns the most recently recorded username for this tab, or undefined. */
+export async function getPmPendingUsername(): Promise<PendingPmUsername | undefined> {
+  const response: BackgroundResponse<PendingPmUsername | undefined> =
+    await chrome.runtime.sendMessage({ type: GET_PM_PENDING_USERNAME });
+  if (!response.success) throw new Error(response.error);
+  return response.data;
 }

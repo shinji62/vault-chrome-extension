@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loginWithOIDC, loginWithToken } from '../api/auth';
 import { VaultClient } from '../api/vaultClient';
 import { useSettings } from '../hooks/useSettings';
 import { AuthMethod, Settings } from '../types/settings';
+import { OIDC_STATUS_KEY, OIDC_TAB_TIMEOUT_MS, OidcStatus } from '../types/messages';
 import { TokenInfo } from '../types/vault';
 import { VaultLogo } from '../components/VaultLogo';
 
@@ -65,6 +66,16 @@ function StatusBadge({ state, tokenInfo, errorMessage }: StatusBadgeProps) {
 // Namespace picker
 // ---------------------------------------------------------------------------
 
+/** Returns the parent namespace path, clamped to rootNamespace as the floor. */
+function parentNamespace(current: string, root: string): string | null {
+  if (current === root) return null; // already at root — no parent
+  const slash = current.lastIndexOf('/');
+  const parent = slash === -1 ? '' : current.substring(0, slash);
+  // Don't go above the login-time root
+  if (root && !parent.startsWith(root)) return root;
+  return parent;
+}
+
 interface NamespacePickerProps {
   /** Free-text input mode (before login). */
   freeText: true;
@@ -79,6 +90,8 @@ interface NamespacePickerAuthProps {
   freeText?: false;
   vaultUrl?: never;
   client: VaultClient;
+  /** The login-time namespace that acts as the browsing floor. */
+  rootNamespace: string;
   value: string;
   onChange: (ns: string) => void;
 }
@@ -100,16 +113,24 @@ function NamespacePicker(props: NamespacePickerProps | NamespacePickerAuthProps)
   }
 
   // ── Authenticated dropdown mode (after login) ───────────────────────────
-  return <NamespaceDropdown client={props.client} value={value} onChange={onChange} />;
+  return (
+    <NamespaceDropdown
+      client={props.client}
+      rootNamespace={props.rootNamespace}
+      value={value}
+      onChange={onChange}
+    />
+  );
 }
 
 interface NamespaceDropdownProps {
   client: VaultClient;
+  rootNamespace: string;
   value: string;
   onChange: (ns: string) => void;
 }
 
-function NamespaceDropdown({ client, value, onChange }: NamespaceDropdownProps) {
+function NamespaceDropdown({ client, rootNamespace, value, onChange }: NamespaceDropdownProps) {
   const [options, setOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const fetched = useRef(false);
@@ -124,31 +145,41 @@ function NamespaceDropdown({ client, value, onChange }: NamespaceDropdownProps) 
         setLoading(false);
       })
       .catch(() => {
+        // Not enterprise or no permission — options stays empty
         setOptions([]);
         setLoading(false);
       });
   }, [client]);
 
+  // The root option is the login-time namespace, so "(root)" returns to the
+  // configured root rather than escaping to the absolute root namespace.
+  const rootOption = rootNamespace;
+  const allOptions = [rootOption, ...options];
+  const isKnown = allOptions.includes(value);
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <select
         id="namespace"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={isKnown ? value : '__custom__'}
+        onChange={(e) => onChange(e.target.value === '__custom__' ? value : e.target.value)}
         disabled={loading}
         style={{ flex: 1 }}
       >
         {loading
-          ? <option value="">Loading…</option>
+          ? <option value={rootOption}>Loading…</option>
           : <>
-              <option value="">(root)</option>
+              <option value={rootOption}>{rootNamespace || '(root)'}</option>
               {options.map((ns) => (
                 <option key={ns} value={ns}>{ns}</option>
               ))}
+              {!isKnown && value && (
+                <option value="__custom__">{value}</option>
+              )}
             </>
         }
       </select>
-      {!loading && value.includes('/') && (
+      {!loading && value.includes('/') && parentNamespace(value, rootNamespace) !== null && (
         <button
           type="button"
           className="btn btn-sm"
@@ -192,7 +223,8 @@ function useOptionsTheme() {
 }
 
 export function Options({ onBack }: OptionsProps = {}) {
-  const { settings, token, loading, saveSettings, clearSettings } = useSettings();
+  const { settings, token, loading, saveSettings, saveSettingsOnly, clearSettings, rootNamespace } =
+    useSettings();
   const { theme: optTheme, toggle: toggleTheme } = useOptionsTheme();
 
   const [vaultUrl, setVaultUrl] = useState('');
@@ -201,7 +233,10 @@ export function Options({ onBack }: OptionsProps = {}) {
   const [tokenValue, setTokenValue] = useState('');
   const [oidcRole, setOidcRole] = useState('');
   const [oidcMount, setOidcMount] = useState('oidc');
+  const [oidcRedirectUri, setOidcRedirectUri] = useState('');
   const [urlError, setUrlError] = useState('');
+  // Shown so the user can copy it into the OIDC role's allowed_redirect_uris.
+  const defaultRedirectUri = useMemo(() => chrome.identity.getRedirectURL('vault-oidc'), []);
   const [busy, setBusy] = useState(false);
   const [badgeState, setBadgeState] = useState<BadgeState>('idle');
   const [errorMessage, setErrorMessage] = useState('');
@@ -210,6 +245,8 @@ export function Options({ onBack }: OptionsProps = {}) {
   // PM settings (configured during connection)
   const [pmNamespace, setPmNamespace] = useState('');
   const [pmMount, setPmMount] = useState('');
+  const [pmTransitEnabled, setPmTransitEnabled] = useState(false);
+  const [pmTransitMount, setPmTransitMount] = useState('transit');
 
   useEffect(() => {
     if (loading) return;
@@ -219,10 +256,55 @@ export function Options({ onBack }: OptionsProps = {}) {
       setAuthMethod(settings.authMethod ?? 'token');
       setOidcRole(settings.oidcRole ?? '');
       setOidcMount(settings.oidcMount ?? 'oidc');
+      setOidcRedirectUri(settings.oidcRedirectUri ?? '');
       setPmNamespace(settings.pmNamespace ?? '');
       setPmMount(settings.pmMount ?? '');
+      setPmTransitEnabled(settings.pmTransitEnabled ?? false);
+      setPmTransitMount(settings.pmTransitMount || 'transit');
     }
   }, [loading, settings]);
+
+  // The popup is torn down when the OIDC auth window takes focus, so the login
+  // outcome is recovered from session storage when it reopens rather than from
+  // the (undelivered) sendMessage response.
+  useEffect(() => {
+    let cancelled = false;
+
+    const applyStatus = (status: OidcStatus | undefined) => {
+      if (cancelled) return;
+      if (status?.state === 'in-progress') {
+        // A worker killed mid-flow leaves 'in-progress' behind for good. Time it
+        // out here too, otherwise the button stays on "Working…" permanently and
+        // the only escape is reinstalling the extension.
+        if (Date.now() - status.startedAt > OIDC_TAB_TIMEOUT_MS) {
+          setBusy(false);
+          setErrorMessage('Previous OIDC login did not finish. Please try again.');
+          setBadgeState('error');
+          void chrome.storage.session.remove([OIDC_STATUS_KEY]);
+          return;
+        }
+        setBusy(true);
+      } else if (status?.state === 'error') {
+        setBusy(false);
+        setErrorMessage(status.error);
+        setBadgeState('error');
+      }
+    };
+
+    chrome.storage.session.get([OIDC_STATUS_KEY], (r) =>
+      applyStatus(r[OIDC_STATUS_KEY] as OidcStatus | undefined),
+    );
+
+    const listener = (changes: Record<string, chrome.storage.StorageChange>) => {
+      if (!(OIDC_STATUS_KEY in changes)) return;
+      applyStatus(changes[OIDC_STATUS_KEY]?.newValue as OidcStatus | undefined);
+    };
+    chrome.storage.session.onChanged.addListener(listener);
+    return () => {
+      cancelled = true;
+      chrome.storage.session.onChanged.removeListener(listener);
+    };
+  }, []);
 
   useEffect(() => {
     if (loading) return;
@@ -265,8 +347,12 @@ export function Options({ onBack }: OptionsProps = {}) {
       authMethod,
       oidcRole: authMethod === 'oidc' ? oidcRole : undefined,
       oidcMount: authMethod === 'oidc' ? (oidcMount.trim() || 'oidc') : undefined,
+      oidcRedirectUri:
+        authMethod === 'oidc' ? oidcRedirectUri.trim() || undefined : undefined,
       pmNamespace: pmNamespace.trim() || undefined,
       pmMount: pmMount.trim() || undefined,
+      pmTransitEnabled,
+      pmTransitMount: pmTransitEnabled ? (pmTransitMount.trim() || 'transit') : undefined,
     };
 
     setBusy(true);
@@ -281,13 +367,15 @@ export function Options({ onBack }: OptionsProps = {}) {
         setBadgeState('connected');
         setBusy(false);
       } else {
-        // OIDC: background opens a tab, completes the flow, and writes
-        // settings+token to storage. We await the response so any error
-        // (e.g. auth_url failure) is surfaced to the user immediately.
+        // Persist settings *before* launching the flow. Chrome destroys this
+        // popup as soon as the auth window takes focus, so a draft held only in
+        // React state is lost — which is why the form came back blank after a
+        // failed login. Settings are non-sensitive; the token stays in session.
+        await saveSettingsOnly(draft);
+        // The background completes the flow and writes the token to storage.
+        // The response normally never arrives (this popup is gone by then); the
+        // outcome is recovered from OIDC_STATUS_KEY when the popup reopens.
         await loginWithOIDC(draft);
-        // On success the storage listener in useSettings will update
-        // settings/token, triggering the useEffect that sets badgeState
-        // to 'connected'. Clear busy here so the spinner stops.
         setBusy(false);
       }
     } catch (err) {
@@ -324,7 +412,7 @@ export function Options({ onBack }: OptionsProps = {}) {
   }
 
   return (
-    <div className="options-page" style={{ flex: 1, overflowY: 'auto' }}>
+    <div className={`options-page${onBack ? ' options-page-inline' : ''}`} style={{ flex: 1, overflowY: 'auto' }}>
       {/* ── Brand header ── */}
       <div className="options-header">
         {onBack && (
@@ -389,7 +477,8 @@ export function Options({ onBack }: OptionsProps = {}) {
                   </label>
                   {settings && token ? (
                     <NamespacePicker
-                      client={new VaultClient({ ...settings, namespace: undefined }, token)}
+                      client={new VaultClient(settings, token)}
+                      rootNamespace={rootNamespace ?? ''}
                       value={namespace}
                       onChange={setNamespace}
                     />
@@ -463,6 +552,24 @@ export function Options({ onBack }: OptionsProps = {}) {
                         placeholder="default"
                       />
                     </div>
+                    <div className="field">
+                      <label htmlFor="oidcRedirectUri">
+                        OIDC Redirect URI{' '}
+                        <span className="label-optional">(optional — override the default)</span>
+                      </label>
+                      <input
+                        id="oidcRedirectUri"
+                        type="text"
+                        value={oidcRedirectUri}
+                        onChange={(e) => setOidcRedirectUri(e.target.value)}
+                        placeholder={defaultRedirectUri}
+                      />
+                      <p className="field-hint">
+                        Must be listed in your Vault OIDC role&apos;s{' '}
+                        <code>allowed_redirect_uris</code>. Defaults to{' '}
+                        <code>{defaultRedirectUri}</code>.
+                      </p>
+                    </div>
                   </>
                 )}
 
@@ -491,6 +598,39 @@ export function Options({ onBack }: OptionsProps = {}) {
                     placeholder="secret"
                   />
                 </div>
+
+                {/* PM Transit (passkeys) */}
+                <div className="field">
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
+                    <input
+                      id="pmTransitEnabled"
+                      type="checkbox"
+                      checked={pmTransitEnabled}
+                      onChange={(e) => setPmTransitEnabled(e.target.checked)}
+                      style={{ width: 'auto' }}
+                    />
+                    <span>Enable Transit (Passkeys)</span>
+                  </label>
+                  <p className="text-muted text-sm" style={{ marginTop: 4 }}>
+                    Save &amp; read passkeys encrypted via the Vault Transit engine. When disabled,
+                    passkeys cannot be saved or read. Requires a per-identity Transit key to be
+                    provisioned by an admin (see README).
+                  </p>
+                </div>
+                {pmTransitEnabled && (
+                  <div className="field">
+                    <label htmlFor="pmTransitMount">
+                      Transit Mount <span className="label-optional">(default: transit)</span>
+                    </label>
+                    <input
+                      id="pmTransitMount"
+                      type="text"
+                      value={pmTransitMount}
+                      onChange={(e) => setPmTransitMount(e.target.value)}
+                      placeholder="transit"
+                    />
+                  </div>
+                )}
 
                 {/* Actions */}
                 <div className="flex gap-2" style={{ paddingTop: 4 }}>

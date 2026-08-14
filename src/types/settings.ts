@@ -13,4 +13,9 @@ export interface Settings {
   pmNamespace?: string;
   /** KV v2 mount inside pmNamespace used for Password Manager storage (default: "secret") */
   pmMount?: string;
+  /** Enable passkey support via the Vault Transit engine. When disabled, passkeys
+   *  cannot be saved or read from this extension. */
+  pmTransitEnabled?: boolean;
+  /** Transit mount inside pmNamespace used to encrypt passkeys (default: "transit"). */
+  pmTransitMount?: string;
 }

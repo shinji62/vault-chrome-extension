@@ -15,7 +15,8 @@
     "format": "prettier --write src",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:integration": "bash scripts/integration-test.sh"
   },
   "dependencies": {
     "react": "^19.2.8",

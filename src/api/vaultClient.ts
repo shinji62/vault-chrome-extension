@@ -1,4 +1,11 @@
-import { KVv2Metadata, TokenInfo, TokenSelfLookup, VaultApiError, VaultMount } from '../types/vault';
+import {
+  KVv2Metadata,
+  PasskeyRecord,
+  TokenInfo,
+  TokenSelfLookup,
+  VaultApiError,
+  VaultMount,
+} from '../types/vault';
 import { Settings } from '../types/settings';
 
 export class VaultClient {
@@ -9,27 +16,40 @@ export class VaultClient {
   }
 
   private logRequest(method: string, url: string, body?: unknown): void {
-    console.log('[vault] request', {
+    // Bodies are deliberately omitted: they carry passwords, private keys and
+    // Transit plaintext, and extension console logs are easily exported.
+    console.debug('[vault] request', {
       method,
       url,
       namespace: this.settings.namespace,
       hasToken: !!this.token,
-      body,
+      hasBody: body !== undefined,
     });
   }
 
-  private logResponse(method: string, url: string, status: number, body: unknown): void {
-    console.log('[vault] response', {
-      method,
-      url,
-      status,
-      body,
-    });
+  private logResponse(method: string, url: string, status: number): void {
+    console.debug('[vault] response', { method, url, status });
+  }
+
+  /**
+   * Percent-encodes each path segment while preserving "/" separators and any
+   * trailing query string, so a secret label containing "?", "#" or ".." cannot
+   * alter the request target.
+   */
+  private encodePath(path: string): string {
+    const queryStart = path.indexOf('?');
+    const rawPath = queryStart === -1 ? path : path.slice(0, queryStart);
+    const query = queryStart === -1 ? '' : path.slice(queryStart);
+    const encoded = rawPath
+      .split('/')
+      .map((segment) => encodeURIComponent(segment))
+      .join('/');
+    return `${encoded}${query}`;
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const { vaultUrl, namespace } = this.settings;
-    const url = `${vaultUrl.replace(/\/$/, '')}${path}`;
+    const url = `${vaultUrl.replace(/\/$/, '')}${this.encodePath(path)}`;
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -60,7 +80,7 @@ export class VaultClient {
       }
     }
 
-    this.logResponse(method, url, response.status, responseBody);
+    this.logResponse(method, url, response.status);
 
     if (!response.ok) {
       const vaultErrors =
@@ -249,8 +269,166 @@ export class VaultClient {
   async generatePassword(policyName: string): Promise<string> {
     const response = await this.request<{ data: { password: string } }>(
       'GET',
-      `/v1/sys/policies/password/${encodeURIComponent(policyName)}/generate`,
+      `/v1/sys/policies/password/${policyName}/generate`,
     );
     return response.data.password;
+  }
+
+  // -------------------------------------------------------------------------
+  // Passkeys (Vault Transit)
+  // -------------------------------------------------------------------------
+
+  private transitMount(): string {
+    return this.settings.pmTransitMount || 'transit';
+  }
+
+  /**
+   * Transit key used to encrypt a user's passkeys. It is named after the
+   * identity's entity ID so an ACL policy can grant each user access to only
+   * their own key via the `{{identity.entity.id}}` template.
+   */
+  transitKeyName(entityId: string): string {
+    return `passkey-${entityId}`;
+  }
+
+  /** Encrypts a plaintext secret blob via Transit and returns the ciphertext. */
+  async transitEncrypt(
+    plaintext: string,
+    entityId: string,
+  ): Promise<{ ciphertext: string; keyVersion: number }> {
+    const response = await this.request<{ data: { ciphertext: string; key_version: number } }>(
+      'POST',
+      `/v1/${this.transitMount()}/encrypt/${this.transitKeyName(entityId)}`,
+      { plaintext: this.encodeBase64(plaintext) },
+    );
+    return { ciphertext: response.data.ciphertext, keyVersion: response.data.key_version };
+  }
+
+  /** Decrypts a Transit ciphertext back to the original plaintext secret. */
+  async transitDecrypt(ciphertext: string, entityId: string): Promise<string> {
+    const response = await this.request<{ data: { plaintext: string } }>(
+      'POST',
+      `/v1/${this.transitMount()}/decrypt/${this.transitKeyName(entityId)}`,
+      { ciphertext },
+    );
+    return this.decodeBase64(response.data.plaintext);
+  }
+
+  /** Saves a passkey: the private key JWK is encrypted via Transit, metadata stays plaintext in KV. */
+  async savePasskey(
+    entityId: string,
+    input: {
+      label: string;
+      rpId: string;
+      username?: string;
+      credentialId: string;
+      userHandle: string;
+      algorithm: number;
+      counter: number;
+      privateJwk: JsonWebKey;
+      /** Preserved across counter updates so it reflects first registration. */
+      createdAt?: string;
+    },
+  ): Promise<void> {
+    const mount = this.settings.pmMount || 'secret';
+    const path = `password-manager/${entityId}/passkeys/${input.label}`;
+    const { ciphertext, keyVersion } = await this.transitEncrypt(JSON.stringify(input.privateJwk), entityId);
+    const data: Record<string, string> = {
+      ciphertext,
+      keyVersion: String(keyVersion),
+      rpId: input.rpId,
+      credentialId: input.credentialId,
+      userHandle: input.userHandle,
+      algorithm: String(input.algorithm),
+      counter: String(input.counter),
+      createdAt: input.createdAt ?? new Date().toISOString(),
+    };
+    if (input.username) data['username'] = input.username;
+    await this.createOrUpdateSecret(mount, path, data, 2);
+  }
+
+  /** Reads a passkey from KV and decrypts its private key JWK via Transit. */
+  async readPasskey(entityId: string, label: string): Promise<PasskeyRecord & { privateJwk: JsonWebKey }> {
+    const mount = this.settings.pmMount || 'secret';
+    const path = `password-manager/${entityId}/passkeys/${label}`;
+    const data = await this.readSecret(mount, path, 2);
+    const secret = JSON.parse(await this.transitDecrypt(data['ciphertext'], entityId)) as JsonWebKey;
+    return {
+      label,
+      rpId: data['rpId'],
+      username: data['username'],
+      credentialId: data['credentialId'],
+      userHandle: data['userHandle'],
+      algorithm: data['algorithm'],
+      counter: data['counter'],
+      keyVersion: data['keyVersion'] ? Number(data['keyVersion']) : undefined,
+      createdAt: data['createdAt'],
+      ciphertext: data['ciphertext'],
+      privateJwk: secret,
+    };
+  }
+
+  /** Lists passkey metadata (without decrypting secrets). */
+  async listPasskeys(
+    entityId: string,
+  ): Promise<
+    Array<{
+      label: string;
+      rpId?: string;
+      username?: string;
+      credentialId?: string;
+      userHandle?: string;
+    }>
+  > {
+    const mount = this.settings.pmMount || 'secret';
+    const prefix = `password-manager/${entityId}/passkeys`;
+    let keys: string[];
+    try {
+      keys = await this.listSecrets(mount, prefix, 2);
+    } catch {
+      return [];
+    }
+    const rows: Array<{
+      label: string;
+      rpId?: string;
+      username?: string;
+      credentialId?: string;
+      userHandle?: string;
+    }> = [];
+    for (const key of keys) {
+      if (key.endsWith('/')) continue;
+      try {
+        const data = await this.readSecret(mount, `${prefix}/${key}`, 2);
+        rows.push({
+          label: key,
+          rpId: data['rpId'],
+          username: data['username'],
+          credentialId: data['credentialId'],
+          userHandle: data['userHandle'],
+        });
+      } catch {
+        // skip unreadable passkeys
+      }
+    }
+    return rows;
+  }
+
+  async deletePasskey(entityId: string, label: string): Promise<void> {
+    const mount = this.settings.pmMount || 'secret';
+    await this.deleteSecret(mount, `password-manager/${entityId}/passkeys/${label}`, 2);
+  }
+
+  private encodeBase64(input: string): string {
+    const bytes = new TextEncoder().encode(input);
+    let binary = '';
+    for (const b of bytes) binary += String.fromCharCode(b);
+    return btoa(binary);
+  }
+
+  private decodeBase64(input: string): string {
+    const binary = atob(input);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
   }
 }

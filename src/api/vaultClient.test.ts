@@ -509,3 +509,163 @@ describe('error handling', () => {
     await expect(client.lookupToken()).rejects.toMatchObject({ statusCode: 500 });
   });
 });
+
+// ── Transit / passkeys ────────────────────────────────────────────────────────
+describe('transit passkeys', () => {
+  it('transitKeyName uses the entity id', () => {
+    const client = makeClient();
+    expect(client.transitKeyName('ent-123')).toBe('passkey-ent-123');
+  });
+
+  it('transitEncrypt posts base64 plaintext and returns ciphertext + key version', async () => {
+    let capturedUrl = '';
+    let capturedBody: unknown;
+    server.use(
+      http.post(`${BASE}/v1/transit/encrypt/passkey-ent-123`, async ({ request }) => {
+        capturedUrl = request.url;
+        capturedBody = await request.json();
+        return HttpResponse.json({ data: { ciphertext: 'vault:v1:abc', key_version: 1 } });
+      }),
+    );
+
+    const client = makeClient(); // no pmTransitMount → default "transit"
+    const result = await client.transitEncrypt('hello', 'ent-123');
+
+    expect(capturedUrl).toContain('/v1/transit/encrypt/passkey-ent-123');
+    expect(capturedBody).toEqual({ plaintext: btoa('hello') });
+    expect(result).toEqual({ ciphertext: 'vault:v1:abc', keyVersion: 1 });
+  });
+
+  it('transitDecrypt decodes the base64 plaintext', async () => {
+    server.use(
+      http.post(`${BASE}/v1/transit/decrypt/passkey-ent-123`, () =>
+        HttpResponse.json({ data: { plaintext: btoa('PRIVATE_KEY_ABC') } }),
+      ),
+    );
+
+    const client = makeClient();
+    const secret = await client.transitDecrypt('vault:v1:xyz', 'ent-123');
+    expect(secret).toBe('PRIVATE_KEY_ABC');
+  });
+
+  it('uses a custom pmTransitMount when configured', async () => {
+    server.use(
+      http.post(`${BASE}/v1/mytransit/encrypt/passkey-ent-123`, () =>
+        HttpResponse.json({ data: { ciphertext: 'vault:v1:abc', key_version: 1 } }),
+      ),
+    );
+
+    const client = makeClient({ pmTransitMount: 'mytransit' });
+    const result = await client.transitEncrypt('hello', 'ent-123');
+    expect(result.ciphertext).toBe('vault:v1:abc');
+  });
+
+  it('savePasskey encrypts the private JWK then writes ciphertext + metadata to KV', async () => {
+    let encryptedBody: unknown;
+    let storedBody: unknown;
+    server.use(
+      http.post(`${BASE}/v1/transit/encrypt/passkey-ent-123`, async ({ request }) => {
+        encryptedBody = await request.json();
+        return HttpResponse.json({ data: { ciphertext: 'vault:v1:enc', key_version: 2 } });
+      }),
+      http.post(`${BASE}/v1/secret/data/password-manager/ent-123/passkeys/github`, async ({ request }) => {
+        storedBody = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const privateJwk = { kty: 'EC', crv: 'P-256', x: 'xxx', y: 'yyy', d: 'ddd' };
+    const client = makeClient();
+    await client.savePasskey('ent-123', {
+      label: 'github',
+      rpId: 'github.com',
+      username: 'alice',
+      credentialId: 'cred123',
+      userHandle: 'uh1',
+      algorithm: -7,
+      counter: 0,
+      privateJwk,
+      createdAt: '2024-01-01T00:00:00.000Z',
+    });
+
+    expect(encryptedBody).toEqual({ plaintext: btoa(JSON.stringify(privateJwk)) });
+    expect(storedBody).toEqual({
+      data: {
+        ciphertext: 'vault:v1:enc',
+        keyVersion: '2',
+        rpId: 'github.com',
+        credentialId: 'cred123',
+        userHandle: 'uh1',
+        algorithm: '-7',
+        counter: '0',
+        username: 'alice',
+        createdAt: '2024-01-01T00:00:00.000Z',
+      },
+    });
+  });
+
+  it('savePasskey stamps createdAt when none is supplied', async () => {
+    let storedBody: { data: Record<string, string> } | undefined;
+    server.use(
+      http.post(`${BASE}/v1/transit/encrypt/passkey-ent-123`, () =>
+        HttpResponse.json({ data: { ciphertext: 'vault:v1:enc', key_version: 1 } }),
+      ),
+      http.post(`${BASE}/v1/secret/data/password-manager/ent-123/passkeys/github`, async ({ request }) => {
+        storedBody = (await request.json()) as { data: Record<string, string> };
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    await makeClient().savePasskey('ent-123', {
+      label: 'github',
+      rpId: 'github.com',
+      credentialId: 'cred123',
+      userHandle: 'uh1',
+      algorithm: -7,
+      counter: 0,
+      privateJwk: { kty: 'EC' },
+    });
+
+    // Previously never written, so the UI always rendered an empty date.
+    expect(storedBody?.data['createdAt']).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('readPasskey reads KV and decrypts the private JWK via transit', async () => {
+    const privateJwk = { kty: 'EC', crv: 'P-256', x: 'xxx', y: 'yyy', d: 'ddd' };
+    server.use(
+      http.get(`${BASE}/v1/secret/data/password-manager/ent-123/passkeys/github`, () =>
+        HttpResponse.json({
+          data: {
+            data: {
+              ciphertext: 'vault:v1:xyz',
+              keyVersion: '3',
+              rpId: 'github.com',
+              username: 'alice',
+              credentialId: 'cred123',
+              userHandle: 'uh1',
+              algorithm: '-7',
+              counter: '4',
+            },
+            metadata: { version: 1, created_time: '', deletion_time: '', destroyed: false },
+          },
+        }),
+      ),
+      http.post(`${BASE}/v1/transit/decrypt/passkey-ent-123`, () =>
+        HttpResponse.json({ data: { plaintext: btoa(JSON.stringify(privateJwk)) } }),
+      ),
+    );
+
+    const client = makeClient();
+    const rec = await client.readPasskey('ent-123', 'github');
+
+    expect(rec.label).toBe('github');
+    expect(rec.rpId).toBe('github.com');
+    expect(rec.username).toBe('alice');
+    expect(rec.credentialId).toBe('cred123');
+    expect(rec.userHandle).toBe('uh1');
+    expect(rec.algorithm).toBe('-7');
+    expect(rec.counter).toBe('4');
+    expect(rec.keyVersion).toBe(3);
+    expect(rec.privateJwk).toEqual(privateJwk);
+  });
+});

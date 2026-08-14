@@ -1,7 +1,14 @@
 import overlayCSS from '../styles/content.css?inline';
 import { LoginForm } from './formDetector';
-import { searchPmSecretsByUrl, getSecret } from './messaging';
+import { searchPmSecretsByUrl } from './messaging';
 import { setNativeValue } from './domUtils';
+
+interface PmMatch {
+  mount: string;
+  path: string;
+  username: string;
+  password: string;
+}
 
 const OVERLAY_CSS = `:host { all: initial; display: contents; }\n${overlayCSS}`;
 
@@ -122,9 +129,24 @@ function positionButton(btn: HTMLButtonElement, field: HTMLInputElement): void {
   btn.style.left = `${rect.right + 4}px`;
 }
 
+function positionDropdown(dropdown: HTMLDivElement, btn: HTMLButtonElement): void {
+  const btnRect = btn.getBoundingClientRect();
+  dropdown.style.top = `${btnRect.bottom + 4}px`;
+  dropdown.style.left = `${btnRect.left}px`;
+}
+
 function closeDropdown(entry: OverlayEntry): void {
   entry.dropdown.classList.remove('open');
   entry.dropdown.innerHTML = '';
+}
+
+/** Render the dropdown (positioned under the button) with the given content node. */
+function openDropdown(entry: OverlayEntry, content: HTMLElement): void {
+  const { dropdown, btn } = entry;
+  dropdown.innerHTML = '';
+  dropdown.appendChild(content);
+  dropdown.classList.add('open');
+  positionDropdown(dropdown, btn);
 }
 
 async function handleKeyBtnClick(entry: OverlayEntry): Promise<void> {
@@ -136,19 +158,37 @@ async function handleKeyBtnClick(entry: OverlayEntry): Promise<void> {
     return;
   }
 
-  dropdown.innerHTML = '<div class="vault-dropdown-empty">Searching Vault…</div>';
-  dropdown.classList.add('open');
+  // Reflect the in-flight search on the button so the UI stays responsive.
+  btn.classList.add('vault-fill-btn-loading');
+  btn.setAttribute('aria-busy', 'true');
 
-  // Position dropdown below the button
-  const btnRect = btn.getBoundingClientRect();
-  dropdown.style.top = `${btnRect.bottom + 4}px`;
-  dropdown.style.left = `${btnRect.left}px`;
-
-  let matches: Array<{ mount: string; path: string; username: string }>;
+  let matches: PmMatch[];
   try {
     matches = await searchPmSecretsByUrl(window.location.href);
   } catch (err) {
-    dropdown.innerHTML = `<div class="vault-dropdown-empty">Error: ${String(err)}</div>`;
+    btn.classList.remove('vault-fill-btn-loading');
+    btn.removeAttribute('aria-busy');
+    const error = document.createElement('div');
+    error.className = 'vault-dropdown-empty';
+    error.textContent = `Error: ${String(err)}`;
+    openDropdown(entry, error);
+    return;
+  }
+
+  btn.classList.remove('vault-fill-btn-loading');
+  btn.removeAttribute('aria-busy');
+
+  // Exactly one matching credential for this site — fill it directly so a single
+  // click on the key autofills the correct username & password (no dropdown).
+  if (matches.length === 1) {
+    const ok = await fillCredentials(entry, matches[0], loginForm);
+    if (!ok) {
+      const error = document.createElement('div');
+      error.className = 'vault-dropdown-empty';
+      error.textContent =
+        'Could not fill — this secret has no password (or it could not be read).';
+      openDropdown(entry, error);
+    }
     return;
   }
 
@@ -158,14 +198,16 @@ async function handleKeyBtnClick(entry: OverlayEntry): Promise<void> {
     const empty = document.createElement('div');
     empty.className = 'vault-dropdown-empty';
     empty.textContent = 'No matching secrets in Vault';
-    dropdown.appendChild(empty);
+    openDropdown(entry, empty);
     return;
   }
 
   const header = document.createElement('div');
   header.className = 'vault-dropdown-header';
   header.textContent = 'Vault Passwords';
-  dropdown.appendChild(header);
+
+  const body = document.createElement('div');
+  body.appendChild(header);
 
   for (const match of matches) {
     const item = document.createElement('button');
@@ -185,30 +227,29 @@ async function handleKeyBtnClick(entry: OverlayEntry): Promise<void> {
       e.stopPropagation();
       void fillCredentials(entry, match, loginForm);
     });
-    dropdown.appendChild(item);
+    body.appendChild(item);
   }
+
+  openDropdown(entry, body);
 }
 
 async function fillCredentials(
   entry: OverlayEntry,
-  match: { mount: string; path: string; username: string },
+  match: PmMatch,
   loginForm: LoginForm,
-): Promise<void> {
+): Promise<boolean> {
   closeDropdown(entry);
 
-  let data: Record<string, string>;
-  try {
-    data = await getSecret(match.mount, match.path, 2);
-  } catch {
-    return;
-  }
-
   const { usernameField, passwordField } = loginForm;
-  const password = data['password'] ?? '';
+  // The matches returned by the PM search already carry the decrypted password
+  // (read via the PM client), so no extra round-trip is needed here.
+  const password = match.password ?? '';
 
-  if (usernameField) {
+  if (!password) return false;
+  if (usernameField && match.username) {
     setNativeValue(usernameField, match.username);
   }
   setNativeValue(passwordField, password);
+  return true;
 }
 

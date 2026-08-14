@@ -1,0 +1,257 @@
+# Vault Chrome Extension — agent notes
+
+Chrome MV3 extension: HashiCorp Vault password manager (KV v2 only) plus a
+software WebAuthn/passkey authenticator backed by Vault Transit.
+
+## Commands
+
+```bash
+npm run typecheck    # tsc --noEmit
+npm run lint         # eslint src --max-warnings 0
+npm test             # vitest run
+npm run build        # emits dist/ (load unpacked)
+```
+
+All four must pass. Lint runs with `--max-warnings 0`.
+
+## Architecture
+
+- `src/background/index.ts` — service worker; owns the `VaultClient`, handles all
+  messages, runs the OIDC flow. Single `switch` on message type.
+- `src/api/vaultClient.ts` — all Vault HTTP. `request()` centrally percent-encodes
+  path segments, so **call sites must not** `encodeURIComponent` again.
+- `src/webauthn/` — pure, dependency-free crypto/encoding; the best place for
+  logic that deserves unit tests.
+- `src/content/webauthnMain.ts` runs in the **MAIN** world and patches
+  `navigator.credentials`. `webauthnBridge.ts` is the isolated-world half: not a
+  plain relay — it *orchestrates* consent (`webauthnPrompt.ts`) before it
+  messages the background. `webauthnPrompt.ts` renders both dialogs in a Shadow
+  DOM host, styled from `styles/content.css` (`.vault-wa-*`, reusing the
+  `.vault-save-*` card chrome).
+
+A passkey request therefore takes four hops, and the order is load-bearing:
+
+```
+create: MAIN → bridge → [consent dialog] → WEB_AUTHN_CREATE  → savePasskey
+get:    MAIN → bridge → WEB_AUTHN_LIST → [chooser] → WEB_AUTHN_GET → assertion
+```
+
+`WEB_AUTHN_LIST` returns metadata only. Nothing that produces or persists key
+material runs until the user has answered.
+
+## Gotchas learned the hard way
+
+- **A login "form" is not always a `<form>`.** Many sites (e.g.
+  `practicetestautomation.com/practice-test-login/`) render a `<div id="form">`
+  of inputs plus a `<button id="submit">` whose `click` handler sets
+  `window.location.href` — no `<form>` element, so **no `submit` event ever
+  fires**. Relying solely on `submit` silently drops those logins (Chrome's own
+  manager works because it doesn't need `submit`). The content script captures
+  clicks on submit-looking controls and Enter in the password field via
+  document-level *capture-phase* listeners (`isSubmitControl()` +
+  `findRelatedLoginForm()` in `formDetector.ts`), running **before** the page's
+  handler clears the fields. A `<button>` outside a form also defaults to
+  `type="submit"`, which means nothing without a `<form>` — name hints
+  ("Submit", "Log in", "Sign in"…) are what identify it. Only offer to save a
+  same-page login if the form actually left the layout (a still-rendered
+  password field ⇒ the login failed, don't prompt).
+- **CBOR integer keys.** COSE_Key maps use integer labels (`1`, `3`, `-1`…).
+  Encoding them as text strings produces `a2613102613326` instead of
+  `a201020326`, and every relying party rejects the credential. `cbor.ts`
+  deliberately keeps *non-canonical* numeric strings (`"01"`, `"1.5"`, `"-0"`)
+  as text so decode(encode(x)) round-trips.
+- **`rpId` is optional in the WebAuthn API** and defaults to the caller's
+  effective domain. Forwarding it as `undefined` hashes `""`, silently yielding
+  an rpIdHash nothing can match. `requireRpId()` now throws instead.
+- **Never set the UV flag.** There is no PIN/biometric here, so authenticator
+  data is UP-only and `userVerification: "required"` is refused (the page then
+  falls back to the native authenticator). Check it with
+  `isUserVerificationSatisfiable()` *before* prompting — `webAuthnGet()` also
+  throws, but by then the user has already picked a passkey that can never be
+  used. Reject early, prompt late.
+- **Intercepting `navigator.credentials` also suppresses the browser's consent
+  UI.** Chrome's authenticator dialog never appears once `create`/`get` are
+  patched, so *the extension is the only thing that can ask*. Consent lives in
+  `content/webauthnPrompt.ts` and is collected by the bridge **before** the
+  background is messaged, so declining leaves no key material in Vault. An
+  authenticator that never prompts is the bug, not a convenience.
+- **`get()` must not choose an identity.** Picking `matches[0]` silently signs
+  in as whichever passkey Vault happened to list first. The bridge asks
+  `WEB_AUTHN_LIST` (metadata only, no private keys) to populate a chooser, then
+  sends the user's `label` to `WEB_AUTHN_GET`. The label arrives from the page's
+  process, so the background **re-filters it against the candidate set** — never
+  trust it as a KV path.
+- **Cancelling is an answer, not a capability gap.** `fallback()` exists for "we
+  can't service this", but routing a dismissal there re-triggers the platform
+  authenticator and re-prompts the user with the OS dialog they just declined.
+  The bridge signals `vault-webauthn:cancelled`, which the MAIN world converts
+  to a spec `NotAllowedError`.
+- **A fixed message timeout cannot wrap a human decision.** The old flat 5 s
+  deadline would abort while the dialog was still open. The bridge now `ack`s
+  immediately (proving the extension is present) and the MAIN world then swaps
+  the 5 s ack timer for a long interaction timer. Keep both bounds: an
+  un-acked request must still fail fast.
+- **The MAIN-world hook is attacker-reachable.** A page can forge bridge
+  messages, so the background validates `sender.origin` against the claimed
+  origin *and* the requested `rpId` (`src/webauthn/origin.ts`, registrable-suffix
+  rule — `notexample.com` must not match rpId `example.com`).
+- **Passkey labels must be unique per credential**, otherwise re-registering
+  overwrites the KV entry — silently destroying the old private key. Both
+  builders end in a credential-id suffix for this reason: `passkeyLabel()`
+  (derived) and `passkeyLabelFromUserName()` (what the user typed in the consent
+  dialog). A user-chosen name is *not* exempt. Labels are also sanitised because
+  `/` would create nested KV paths.
+- **Deletion arrives through the Signal API, not `create`/`get`.** Removing a
+  passkey on a website only deletes the *server's* copy; the site tells
+  authenticators to drop theirs via the static
+  `PublicKeyCredential.signalUnknownCredential()` /
+  `signalAllAcceptedCredentials()` (WebAuthn L3 §5.1.5–5.1.7). Patching
+  `navigator.credentials` alone therefore leaks storage forever — deleted
+  passkeys accumulate in Vault. `webauthnMain.ts` patches both signals and
+  `src/webauthn/signal.ts` decides what they condemn.
+- **Signals are a broadcast, not a request to service.** Unlike `create`/`get`,
+  where exactly one authenticator answers and `fallback()` defers to the native
+  one, a signal must reach *every* authenticator: the MAIN world calls the native
+  implementation **and** forwards to the extension, so Chrome can still prune its
+  own credentials. Both legs resolve void — the spec forbids revealing whether
+  anything matched, so nothing is surfaced to the page.
+- **`signalAllAcceptedCredentials` must stay scoped to `userHandle`.** It only
+  enumerates one user's credentials, so filtering by `rpId` alone would delete
+  every other account stored for that site. An empty
+  `allAcceptedCredentialIds` is a legitimate "this user has none left" and *is*
+  honoured — which is exactly why the user scope is the only thing preventing a
+  site-wide erase. `selectSignalledRevokedCredentials()` returns `[]` without a
+  user handle rather than falling back to a broader match.
+- **Compare signalled ids canonically.** Credential ids cross a process boundary
+  from the page, so padding and the base64 alphabet cannot be assumed to match
+  what `savePasskey` stored. A raw string compare silently matches nothing and
+  leaves the passkey in Vault — the failure looks identical to "no such
+  credential". Use `canonicaliseB64Url()`.
+- **A signal that cannot reach Vault must not report success.** "Store
+  unavailable" and "nothing to delete" are indistinguishable to the caller, so
+  `requirePasskeyStore()` throws when the PM client, entity id or Transit is
+  missing instead of returning an empty list.
+- **Don't log request/response bodies** in `vaultClient` — they contain
+  passwords, private JWKs and Transit plaintext.
+- Mode A (`searchSecretsByUrl`) discovers secrets by walking KV, one metadata
+  read per secret. Keep the depth/count caps and bounded concurrency, and match
+  on `custom_metadata.url` *before* reading secret data.
+
+## OIDC login is a three-way lifetime problem
+
+`Options` renders *inside the popup* (`Popup.tsx`); there is no `options_page`.
+Chrome destroys a popup as soon as it loses focus, which
+`chrome.identity.launchWebAuthFlow` always causes. Consequences:
+
+- The `sendMessage` response for `OIDC_LOGIN` is normally **never delivered**.
+  A rejection there means "popup closed", not "login failed" — treating it as an
+  error shows a spurious message after a successful login.
+- MV3 reaps an idle service worker after ~30s, and a pending
+  `launchWebAuthFlow` callback does **not** reset that timer. Since nothing was
+  persisted until the flow returned, a slow login (MFA, typing) silently lost
+  the token. Wrap the flow in `withKeepAlive` (`background/keepAlive.ts`).
+  Symptom of this bug: first login appears to do nothing, second login succeeds
+  *without showing a window* (IdP cookie makes it instant, so the worker
+  survives). "Works on the second try" ⇒ suspect worker lifetime, not logic.
+- UI state must be recovered from session storage (`OIDC_STATUS_KEY`) on mount,
+  since the component that started the flow no longer exists to receive it.
+- Write `vaultToken` (session) **before** `vaultSettings` (local):
+  `chrome.storage.local.onChanged` triggers `rebuildClient()`, which nulls the
+  client if the token half is not yet present.
+
+## Testing notes
+
+- **Never verify encoder output with our own decoder.** A symmetric bug cancels
+  out. This is not hypothetical: an integration test that read the COSE key back
+  via `cborDecode` still passed with the integer-key fix reverted. Assert raw
+  bytes (`a5010203262001215820…`, 77 bytes for EC2/ES256) and import with
+  `node:crypto` `createPublicKey`, then `verify()` the DER signature.
+- Unit tests stub Vault with msw (`onUnhandledRequest: 'error'`).
+- `npm run test:integration` runs `scripts/integration-test.sh`: a disposable
+  `vault -dev` on port 8210, transit enabled, torn down afterwards. The suite
+  self-skips unless `VAULT_TEST_ADDR` is set.
+- The integration file needs `@vitest-environment node`; the default happy-dom
+  enforces browser CORS and blocks requests the extension makes legitimately via
+  `host_permissions`.
+- **`webAuthnCreate().secret` uses `userName`; `savePasskey()` takes
+  `username`.** Spreading one into the other silently drops it, and TypeScript
+  won't flag it (spreads skip excess-property checks). Map fields explicitly, as
+  `background/index.ts` does.
+- **Consent logic is testable; the dialogs are not (yet).** Keep decisions in
+  pure helpers in `src/webauthn/` — `selectPasskeyCandidates()`,
+  `passkeyLabelFromUserName()`, `isUserVerificationSatisfiable()` are unit-tested
+  there. The DOM in `webauthnPrompt.ts` and the postMessage choreography in
+  `webauthnBridge.ts` / `webauthnMain.ts` have **no automated coverage**, so
+  changes to the prompt/ack/cancel flow need a manual pass: register a passkey,
+  cancel a registration, sign in with two passkeys stored, and dismiss the
+  chooser (the page must see `NotAllowedError`, *not* the OS dialog). Add
+  "delete the passkey on the site and confirm it disappears from Vault" to that
+  pass — the Signal API path is only covered up to the message boundary.
+  A throwaway way to check the MAIN-world half without Chrome: `win.eval()` the
+  built `dist/src/content/webauthnMain.js` in a happy-dom `Window` with a fake
+  bridge listener. Note that happy-dom's `navigator.credentials` is a read-only
+  `null`, so it needs `Object.defineProperty` — a plain assignment is dropped and
+  the script bails out at its `if (!cred) return`, which looks exactly like the
+  patch not working.
+- **`selectPasskeyCandidates` is where an authorisation bug would hide.** Its
+  tests deliberately cover the empty `allowCredentials` array (must not exclude
+  everything) and cross-rpId isolation, because both failure modes are silent —
+  one breaks login, the other leaks the wrong credential.
+
+## OIDC through a federated IdP (Entra ID fronting Okta)
+
+The chain is `extension -> Entra ID -> Okta -> Entra ID -> redirect_uri`. Okta
+authenticates and returns to Entra by cross-site SAML POST. When the pending
+authorization request does not survive that round trip, Entra completes the
+sign-in and sends the browser to the tenant's default landing page
+(`portal.azure.com`) instead of back to `redirect_uri`. The flow then hangs: no
+redirect and no `error=` parameter ever appears.
+
+**Measured, not theorised** — a captured trail from a failing login:
+
+```
+login.microsoftonline.com (x17) -> hashicorp.okta.com (x5) -> portal.azure.com
+  [retry re-issued]
+portal.azure.com -> login.microsoftonline.com (x2)
+  -> doormat.hashicorp.services (x3) -> login.microsoftonline.com (x10)
+  -> portal.azure.com (x13)
+```
+
+What this rules out, and must not be re-proposed without new evidence:
+
+- **Federation context loss is not the cause.** The retry hop shows *no* Okta
+  visit, so the Entra session existed and the federated round trip was skipped
+  entirely — and Entra *still* refused to redirect. The failure survives having a
+  session, so it is a property of the request/registration, not of the Okta hop.
+- **Redirect detection is not the cause.** `chromiumapp.org` never appears in the
+  trail across ~50 navigations. The redirect is never issued.
+- **Vault does send PKCE** (`code_challenge` + `code_challenge_method=S256` are in
+  `auth_url`), so `AADSTS9002325` cannot apply.
+
+**The retry was, for a while, never actually being made.** A later trail ends:
+
+```
+… -> portal.azure.com/signin/index/@tenant -> portal.azure.com/auth/login/@tenant
+```
+
+Two *consecutive* portal URLs and no second `authorize` — the portal is a SPA, so
+one landing emits several navigations. `isLandingPage()` matches on origin while
+`describeUrl()` keeps the path, so each was counted as a separate landing, and
+the "second landing is decisive" branch rejected milliseconds after
+`chrome.tabs.update()` was issued. The retry existed on paper only. Hence the
+`untried | retrying | observed` phase: a retry is spent when the re-issued
+request is *seen on the auth origin*, not when it is asked for. Anything gated on
+"we already did X" needs the same care whenever X is asynchronous — mark it done
+on evidence, not on intent.
+
+Consequences to remember before theorising about this code again:
+- **A count of landings is not a count of attempts.** Before blaming the IdP for
+  refusing a retry, check the trail actually contains a second `authorize`.
+- The Vault UI is not a valid control for "the extension should work too": by the
+  time it is used there is normally already an Entra session, so it never
+  exercises the federated round trip.
+- `oidc_scopes="https://graph.microsoft.com/.default"` is HashiCorp's documented
+  Vault+Azure configuration (Graph is used for group lookup). Do not "fix" it.
+- Anything that must settle a login must have a timeout. A promise waiting only
+  on a redirect leaves the options UI stuck on "Working…" forever, and a stale
+  `in-progress` in session storage keeps it stuck across reopens.
