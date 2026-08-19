@@ -10,9 +10,12 @@ npm run typecheck    # tsc --noEmit
 npm run lint         # eslint src --max-warnings 0
 npm test             # vitest run
 npm run build        # emits dist/ (load unpacked)
+npm run screenshots  # re-captures docs/screenshots/ from .preview/
 ```
 
-All four must pass. Lint runs with `--max-warnings 0`.
+The first four must pass. Lint runs with `--max-warnings 0`. `npm test` currently reports
+"4 errors" (unhandled rejections in the OIDC tab-flow suite) alongside 150 passing tests; that
+is pre-existing — check it against a clean tree before assuming your change caused it.
 
 ## Architecture
 

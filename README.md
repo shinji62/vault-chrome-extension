@@ -7,21 +7,28 @@ delete KV secrets directly from your browser, with auto-fill and auto-save for l
 
 ## Screenshots
 
-| Options page (PM settings) | Mount picker |
+| Settings | Mount picker |
 |---|---|
-| ![Options page](docs/screenshots/options-page.png) | ![Mount picker](docs/screenshots/mount-picker.png) |
+| ![Settings](docs/screenshots/options-page.png) | ![Mount picker](docs/screenshots/mount-picker.png) |
 
 | Secret browser | Secret detail |
 |---|---|
 | ![Secret browser](docs/screenshots/secret-browser.png) | ![Secret detail](docs/screenshots/secret-detail.png) |
 
-| Password Manager | Auto-fill overlay |
+| Password Manager | Passkeys |
 |---|---|
-| ![Password Manager](docs/screenshots/pm-credentials.png) | ![Auto-fill overlay](docs/screenshots/autofill-overlay.png) |
+| ![Password Manager](docs/screenshots/pm-credentials.png) | ![Passkeys](docs/screenshots/pm-passkeys.png) |
 
-| Auto-save banner |
-|---|
-| ![Auto-save banner](docs/screenshots/autosave-banner.png) |
+| Auto-fill overlay | Save prompt |
+|---|---|
+| ![Auto-fill overlay](docs/screenshots/autofill-overlay.png) | ![Save prompt](docs/screenshots/autosave-banner.png) |
+
+| Passkey consent | Passkey chooser |
+|---|---|
+| ![Passkey consent](docs/screenshots/passkey-consent.png) | ![Passkey chooser](docs/screenshots/passkey-chooser.png) |
+
+<sub>Regenerate with `npm run screenshots` after a UI change — see
+[`.preview/`](.preview) for the mockups they are captured from.</sub>
 
 ---
 
@@ -112,10 +119,12 @@ vault token create -policy=default -ttl=24h
 4. Click **Login with OIDC** — Chrome opens the OAuth flow with your identity provider and,
    on success, saves the Vault token automatically.
 
-> **Redirect URI:** the extension authenticates via `chrome.identity.launchWebAuthFlow`, which
-> requires a redirect URI under the extension's own `https://<extension-id>.chromiumapp.org/`
-> origin (default path `/vault-oidc`). Add this URL to your Vault OIDC role's
-> `allowed_redirect_uris`, e.g.
+> **Redirect URI:** the login runs in a normal browser tab, so it carries your profile's cookies
+> and device state — providers that enforce device-based Conditional Access (Entra ID being the
+> common case) authenticate but never redirect from an isolated auth window. The redirect URI
+> still lives under the extension's own `https://<extension-id>.chromiumapp.org/` origin
+> (default path `/vault-oidc`); the tab never loads it, the extension just captures the
+> navigation. Add this URL to your Vault OIDC role's `allowed_redirect_uris`, e.g.
 > `vault write auth/oidc/role/default allowed_redirect_uris="https://<extension-id>.chromiumapp.org/vault-oidc"`.
 > If your role requires a different redirect URI, set the **Redirect URI** override in Settings
 > to your configured `https://…chromiumapp.org/…` path.
@@ -252,15 +261,26 @@ site using the standard WebAuthn APIs therefore sees the extension as another pa
   saved, the extension decrypts the private key, signs a valid ECDSA assertion over
   `authenticatorData || clientDataHash`, and returns it.
 
-If the extension cannot service a request (Transit disabled, no matching passkey, or no
+Both flows ask first: patching `navigator.credentials` also suppresses Chrome's own
+authenticator dialog, so the extension shows the consent prompt (registration) or the chooser
+(sign-in) itself. Nothing is written to Vault, and no private key is generated, until you answer;
+dismissing either dialog returns a `NotAllowedError` to the page, exactly as declining the
+native prompt would.
+
+If the extension *cannot service* a request (Transit disabled, no matching passkey, or no
 extension running), it transparently falls back to the browser's native flow — so security keys
-and other passkey providers keep working.
+and other passkey providers keep working. Cancelling is not such a case: it is an answer, and it
+is not retried against the native authenticator.
 
 Notes & constraints:
 
 - Only **ES256** (P-256 / COSE `-7`) is supported; a request that *only* offers other algorithms
   is left to the native flow.
-- One credential is stored per relying party (label = `rpId`) for now.
+- `userVerification: "required"` is refused: there is no PIN or biometric here, so the
+  authenticator data is user-presence-only. Such requests are left to the native flow.
+- Credentials are stored per registration, not per site: the KV label is
+  `{rpId}-{userName}-{credentialId suffix}`, so several accounts on the same site coexist and
+  re-registering never overwrites an existing private key.
 - The private key is the only thing encrypted; identifiers (`rpId`, `credentialId`, `userHandle`,
   `userName`, algorithm, counter) are plaintext KV metadata.
 - The returned credential is a synthetic `PublicKeyCredential`: relying-party libraries that call

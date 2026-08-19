@@ -1,48 +1,63 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<title>Vault — Mounts</title>
-<link rel="stylesheet" href="screens.css" />
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Fraunces:wght@500;600&display=swap" rel="stylesheet" />
-</head>
-<body>
-  <div class="popup">
-    <header class="statusbar">
-      <div class="brand"><span class="logo">🔒</span> Vault</div>
-      <span class="ns">NS · admin</span>
-      <span class="badge green">2h 14m</span>
-    </header>
-    <div class="modetabs">
-      <div class="modetab active">🗂 Secrets</div>
-      <div class="modetab">🔑 Passwords</div>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <title>Vault — Mount picker</title>
+    <link rel="stylesheet" href="screens.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="stage">
+    <div class="popup-frame fixed-height">
+      <div class="app-header">
+        <div class="app-header-logo">
+          <img src="logo.svg" width="26" height="26" alt="" />
+        </div>
+        <div class="app-header-title">Vault Secrets</div>
+        <button class="btn-ghost-header" style="font-size: 16px; padding: 3px 8px">⚙</button>
+        <button class="btn-ghost-header" style="font-size: 16px; padding: 3px 8px">🔧</button>
+        <button class="btn-ghost-header" style="padding: 3px 7px; font-size: 14px; line-height: 1; margin-left: 4px">🌙</button>
+      </div>
+
+      <div class="status-bar">
+        <span class="status-dot status-dot-connected"></span>
+        <span class="text-sm" style="color: var(--color-success); font-weight: 500">Connected</span>
+        <div class="ns-picker-wrapper">
+          <span class="ns-picker-label">NS</span>
+          <select class="ns-picker-select">
+            <option>admin</option>
+          </select>
+        </div>
+        <span class="ml-auto badge badge-success">TTL 2h 14m</span>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button class="tab-btn active" style="flex: 1">Secrets</button>
+        <button class="tab-btn" style="flex: 1">Passwords</button>
+      </div>
+
+      <div class="section flex-col" style="flex: 1; gap: 8px; overflow-y: auto">
+        <div class="text-muted text-sm" style="margin-bottom: 4px">Select a secret engine to browse:</div>
+
+        <button class="mount-pick-btn">
+          <span class="mount-pick-icon">🗂</span>
+          <span class="mount-pick-path">secret</span>
+          <span class="mount-pick-badge">KV v2</span>
+        </button>
+        <button class="mount-pick-btn">
+          <span class="mount-pick-icon">🗂</span>
+          <span class="mount-pick-path">kv-legacy</span>
+          <span class="mount-pick-badge">KV v1</span>
+        </button>
+        <button class="mount-pick-btn" disabled>
+          <span class="mount-pick-icon">🔑</span>
+          <span class="mount-pick-path">ssh-client</span>
+          <span class="mount-pick-badge">SSH</span>
+          <span class="mount-pick-soon">soon</span>
+        </button>
+      </div>
     </div>
-    <div class="body">
-      <h3 style="font-size:var(--font-size-md); margin-bottom:12px;">Secret engines</h3>
-      <button class="mount-item">
-        <span class="ic">🗂</span>
-        <span>
-          <span class="name">secret</span>
-          <div class="sub">KV v2 · 24 secrets</div>
-        </span>
-        <span class="chev">›</span>
-      </button>
-      <button class="mount-item">
-        <span class="ic">🗂</span>
-        <span>
-          <span class="name">team</span>
-          <div class="sub">KV v2 · 12 secrets</div>
-        </span>
-        <span class="chev">›</span>
-      </button>
-      <button class="mount-item">
-        <span class="ic">🔑</span>
-        <span>
-          <span class="name">ssh-client</span>
-          <div class="sub">SSH · coming soon</div>
-        </span>
-      </button>
-    </div>
-  </div>
-</body>
+  </body>
 </html>

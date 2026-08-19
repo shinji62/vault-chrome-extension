@@ -469,7 +469,10 @@
   .vault-fill-btn { background: linear-gradient(180deg, #D8A83E, #A8763E); box-shadow: 0 2px 6px rgba(120,82,18,0.4); }
   .vault-fill-btn:hover { filter: brightness(1.07); }
 
-  .vault-dropdown {
+  /* Must match .vault-dropdown.open's specificity — that rule sets the light
+     background, so a bare .vault-dropdown override loses and leaves cream text
+     on white. */
+  .vault-dropdown.open {
     background: #12100B;
     border-color: #2E281D;
     color: #EDE7D8;

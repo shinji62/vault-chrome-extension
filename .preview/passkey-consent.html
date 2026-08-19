@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <title>Vault — Passkey consent</title>
+    <link rel="stylesheet" href="screens.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="stage">
+    <!-- content/webauthnPrompt.ts — confirmPasskeyCreate(). Intercepting
+         navigator.credentials suppresses Chrome's own dialog, so this is the only
+         consent the user sees. -->
+    <div class="webpage stage-modal">
+      <h2>Create your account</h2>
+      <label>Username</label>
+      <input class="fake-input" value="octocat" readonly />
+      <button class="fake-submit">Register a passkey</button>
+
+      <div class="vault-save-backdrop">
+        <div class="vault-save-banner">
+          <div class="vault-save-header">
+            <span class="vault-save-icon" aria-hidden="true">🔐</span>
+            <span class="vault-save-title">
+              Create a passkey?
+              <small>webauthn.io wants to register a passkey in Vault</small>
+            </span>
+            <button class="vault-save-close" aria-label="Cancel">✕</button>
+          </div>
+
+          <div class="vault-save-user">
+            <span class="vault-save-user-tag">Account</span>
+            <span>octocat</span>
+          </div>
+
+          <div class="vault-save-field">
+            <label class="vault-save-label">Name in Vault</label>
+            <input class="vault-save-input" value="webauthn.io-octocat-3f9ac21b" readonly />
+          </div>
+
+          <div class="vault-save-actions">
+            <button class="vault-save-btn vault-save-btn-primary">Create passkey</button>
+            <button class="vault-save-btn vault-save-btn-ghost">Not now</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

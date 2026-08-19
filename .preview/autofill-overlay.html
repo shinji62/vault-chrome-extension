@@ -1,36 +1,44 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<title>Vault — Auto-fill overlay</title>
-<link rel="stylesheet" href="screens.css" />
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-</head>
-<body>
-  <div style="padding:40px;">
-    <div class="webpage" style="position:relative;">
-      <h2 style="font-size:18px; margin-bottom:16px;">Sign in to GitHub</h2>
-      <div style="font-size:12px; color:#888; margin-bottom:6px;">Username</div>
-      <div class="fake-input">octocat</div>
-      <div style="font-size:12px; color:#888; margin:14px 0 6px;">Password</div>
-      <div class="field-wrap">
-        <div class="fake-input">••••••••••••</div>
-        <div class="vault-fill-btn">🔒</div>
-        <div class="fill-dropdown">
-          <div class="fill-title">Matching credentials</div>
-          <div class="fill-item">
-            <span style="font-size:14px;">🔑</span>
-            <span><span class="nm">github.com</span><div class="mt">secret · password-manager</div></span>
-            <span class="si">⏎</span>
-          </div>
-          <div class="fill-item">
-            <span style="font-size:14px;">🔑</span>
-            <span><span class="nm">GitHub (work)</span><div class="mt">secret · password-manager</div></span>
-            <span class="si">⏎</span>
-          </div>
-        </div>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <title>Vault — Auto-fill overlay</title>
+    <link rel="stylesheet" href="screens.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="stage">
+    <div class="webpage">
+      <h2>Sign in to Example</h2>
+
+      <label>Email</label>
+      <input class="fake-input" value="octocat@example.com" readonly />
+
+      <label>Password</label>
+      <input class="fake-input" type="password" value="000000000000" readonly />
+
+      <button class="fake-submit">Log in</button>
+
+      <!-- Injected next to the password field by content/fillOverlay.ts -->
+      <button class="vault-fill-btn stage-fill-btn" aria-label="Fill from Vault">
+        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M10.5 2a3.5 3.5 0 0 0-3.4 4.3L2.6 10.8a1 1 0 0 0-.3.7v1.9a.6.6 0 0 0 .6.6h1.9a1 1 0 0 0 .7-.3l.7-.7v-1h1v-1h1l1.1-1.1A3.5 3.5 0 1 0 10.5 2Zm1.2 3.3a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z" fill="currentColor" />
+        </svg>
+      </button>
+
+      <div class="vault-dropdown open stage-dropdown">
+        <div class="vault-dropdown-header">Vault Passwords</div>
+        <button class="vault-dropdown-item">
+          <span class="vault-dropdown-username">octocat</span>
+          <span class="vault-dropdown-path">secret/passwords/example.com</span>
+        </button>
+        <button class="vault-dropdown-item">
+          <span class="vault-dropdown-username">octocat-ci</span>
+          <span class="vault-dropdown-path">secret/passwords/example-ci</span>
+        </button>
       </div>
     </div>
-  </div>
-</body>
+  </body>
 </html>

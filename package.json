@@ -16,7 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:integration": "bash scripts/integration-test.sh"
+    "test:integration": "bash scripts/integration-test.sh",
+    "screenshots": "bash scripts/screenshots.sh"
   },
   "dependencies": {
     "react": "^19.2.8",

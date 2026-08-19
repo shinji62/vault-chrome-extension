@@ -1,38 +1,54 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<title>Vault — Save to Vault</title>
-<link rel="stylesheet" href="screens.css" />
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Fraunces:wght@500;600&display=swap" rel="stylesheet" />
-</head>
-<body>
-  <div class="backdrop">
-    <div class="save-card">
-      <div class="save-head">
-        <span class="lock">🔒</span>
-        <div>
-          <div style="font-size:14px; font-weight:700;">Save to Vault?</div>
-          <div style="font-size:12px; opacity:.85;">Keep this sign-in in your Password Manager</div>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <title>Vault — Save prompt</title>
+    <link rel="stylesheet" href="screens.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="stage">
+    <div class="webpage stage-modal">
+      <h2>Sign in to Example</h2>
+      <label>Email</label>
+      <input class="fake-input" value="octocat@example.com" readonly />
+      <label>Password</label>
+      <input class="fake-input" type="password" value="000000000000" readonly />
+      <button class="fake-submit">Log in</button>
+
+      <!-- content/savePrompt.ts — a centred modal over a dimmed page, not a banner -->
+      <div class="vault-save-backdrop">
+        <div class="vault-save-banner">
+          <div class="vault-save-header">
+            <span class="vault-save-icon" aria-hidden="true">🔑</span>
+            <span class="vault-save-title">
+              Save to Vault?
+              <small>Add password for example.com</small>
+            </span>
+            <button class="vault-save-close" aria-label="Dismiss">✕</button>
+          </div>
+
+          <div class="vault-save-field">
+            <label class="vault-save-label">Label</label>
+            <input class="vault-save-input" value="example.com" readonly />
+          </div>
+
+          <div class="vault-save-user">
+            <span class="vault-save-user-tag">User</span>
+            <span>octocat@example.com</span>
+          </div>
+
+          <div class="vault-save-gen">
+            <button class="vault-save-gen-link">Generate password…</button>
+          </div>
+
+          <div class="vault-save-actions">
+            <button class="vault-save-btn vault-save-btn-primary">Save</button>
+          </div>
         </div>
-      </div>
-      <div class="save-body">
-        <div class="save-url">https://github.com</div>
-        <div class="save-site">GitHub</div>
-        <div class="save-row">
-          <span class="lab">Username</span>
-          <span class="val">octocat</span>
-        </div>
-        <div class="save-row">
-          <span class="lab">Password</span>
-          <span class="val">••••••••••••</span>
-        </div>
-      </div>
-      <div class="save-actions">
-        <button class="btn btn-primary" style="flex:1; justify-content:center;">Save password</button>
-        <button class="btn" style="flex:1; justify-content:center;">Dismiss</button>
       </div>
     </div>
-  </div>
-</body>
+  </body>
 </html>
