@@ -527,14 +527,16 @@ self-consistent — not that it matches Vault's real API. The integration suite
 talks to a throwaway `vault -dev` server instead:
 
 ```bash
-# Requires the `vault` binary (brew install vault)
+# Requires Docker or Podman
 npm run test:integration
 ```
 
-The script starts Vault in dev mode on port 8210 (in-memory, unsealed), enables
-`transit`, provisions a password policy, runs the suite, then shuts the server
-down. Nothing touches a real Vault, and no state survives the run. Override the
-port with `VAULT_TEST_PORT`.
+The script runs the official `hashicorp/vault` image in dev mode on port 8210
+(in-memory, unsealed), enables `transit`, provisions a password policy, runs the
+suite, then removes the container. Nothing touches a real Vault, and no state
+survives the run. Override the port with `VAULT_TEST_PORT`, the image with
+`VAULT_TEST_IMAGE`, and the container engine with `VAULT_TEST_ENGINE` (Docker and
+Podman are auto-detected in that order).
 
 These tests cover the KV v2 round-trip, `custom_metadata` (used for URL
 matching), nested listing, percent-encoded secret names, Transit
@@ -543,8 +545,9 @@ registering a credential, decrypting the key from Vault, and verifying the
 resulting assertion with Node's `crypto` against the public key recovered from
 the stored attestation.
 
-They are skipped automatically unless `VAULT_TEST_ADDR` is set, so CI without a
-Vault binary stays green.
+They are skipped automatically unless `VAULT_TEST_ADDR` is set (the script sets
+it), so a plain `npm test` stays hermetic. CI runs them as a separate
+`Integration Tests` job.
 
 ### Project Structure
 

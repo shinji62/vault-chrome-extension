@@ -11,6 +11,13 @@ type UpdatedListener = (
 ) => void;
 type RemovedListener = (tabId: number) => void;
 
+// Timeout-driven rejections must be subscribed to *before* the fake clock is
+// advanced. `advanceTimersByTimeAsync` runs the timeout callback and drains the
+// microtask queue in the same turn, so a promise still unsubscribed at that point
+// is recorded as an unhandled rejection — which fails the whole run even though
+// the assertion that follows passes. Hence `const settled = expect(...)` before
+// the advance and `await settled` after, in every fake-timer test below.
+
 /** Captures the listeners the flow registers so tests can drive navigation. */
 function captureListeners() {
   const updated: UpdatedListener[] = [];
@@ -179,9 +186,11 @@ describe('launchOidcInTab', () => {
         { status: 'complete' },
         { url: 'https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize' },
       );
+      const settled = expect(flow).rejects.toThrow(
+        /AADSTS50105: The signed in user is not assigned/,
+      );
       await vi.advanceTimersByTimeAsync(1500);
-
-      await expect(flow).rejects.toThrow(/AADSTS50105: The signed in user is not assigned/);
+      await settled;
     } finally {
       vi.useRealTimers();
     }
@@ -201,9 +210,11 @@ describe('launchOidcInTab', () => {
         { status: 'complete' },
         { url: 'https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize' },
       );
+      const settled = expect(flow).rejects.toThrow(
+        /Path taken: https:\/\/login\.microsoftonline\.com/,
+      );
       await vi.advanceTimersByTimeAsync(1500);
-
-      await expect(flow).rejects.toThrow(/Path taken: https:\/\/login\.microsoftonline\.com/);
+      await settled;
     } finally {
       vi.useRealTimers();
     }
@@ -220,13 +231,13 @@ describe('launchOidcInTab', () => {
       listeners.navigate('https://example.okta.com/app/signin');
       listeners.navigate('https://login.microsoftonline.com/common/login');
       listeners.navigate('https://portal.azure.com/#home');
-      await vi.advanceTimersByTimeAsync(1500);
-
       // The trail must survive into the message the options page displays,
       // because the service worker console is easy to miss.
-      await expect(flow).rejects.toThrow(
+      const settled = expect(flow).rejects.toThrow(
         /login\.microsoftonline\.com\/common\/oauth2\/authorize → https:\/\/example\.okta\.com\/app\/signin/,
       );
+      await vi.advanceTimersByTimeAsync(1500);
+      await settled;
     } finally {
       vi.useRealTimers();
     }
@@ -306,9 +317,9 @@ describe('launchOidcInTab', () => {
       // entirely — no redirect, no error parameter. This is the state that
       // previously wedged the UI on "Working…" forever.
       listeners.navigate('https://portal.azure.com/');
+      const settled = expect(flow).rejects.toThrow(/No redirect to .* within 1s/);
       await vi.advanceTimersByTimeAsync(1500);
-
-      await expect(flow).rejects.toThrow(/No redirect to .* within 1s/);
+      await settled;
     } finally {
       vi.useRealTimers();
     }

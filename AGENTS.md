@@ -6,16 +6,39 @@ software WebAuthn/passkey authenticator backed by Vault Transit.
 ## Commands
 
 ```bash
-npm run typecheck    # tsc --noEmit
-npm run lint         # eslint src --max-warnings 0
-npm test             # vitest run
-npm run build        # emits dist/ (load unpacked)
-npm run screenshots  # re-captures docs/screenshots/ from .preview/
+npm run typecheck        # tsc --noEmit
+npm run lint             # eslint src --max-warnings 0
+npm test                 # vitest run
+npm run build            # emits dist/ (load unpacked)
+npm run test:integration # disposable vault -dev container on :8210 (needs Docker/Podman)
+npm run screenshots      # re-captures docs/screenshots/ from .preview/
 ```
 
-The first four must pass. Lint runs with `--max-warnings 0`. `npm test` currently reports
-"4 errors" (unhandled rejections in the OIDC tab-flow suite) alongside 150 passing tests; that
-is pre-existing — check it against a clean tree before assuming your change caused it.
+The first four must pass, and they are exactly what the `ci` job runs. Lint runs with
+`--max-warnings 0`. A clean tree is `150 passed | 16 skipped`, **zero errors**, exit 0 — the run
+must be clean, not merely "all tests passed".
+
+- Do **not** run `prettier --write` as a drive-by fix. `.prettierrc` sets
+  `singleQuote: false` while the codebase is uniformly single-quoted, so 66 files are already
+  "unformatted" and reformatting one rewrites most of it as unrelated churn. Prettier is not a
+  CI step; match the surrounding style instead.
+- `npm test` and `npm run test:integration` are separate CI jobs, so a Vault/container hiccup
+  cannot be mistaken for a lint, unit-test or build regression.
+
+### Vitest exits 1 while every test passes
+
+`vitest` fails the run on an unhandled rejection even when all assertions hold, reporting
+`Errors  N errors` under a green test list — so "150 passed" is not proof of a green build.
+This bit the OIDC tab-flow suite: a timeout-driven rejection was only subscribed to *after*
+`await vi.advanceTimersByTimeAsync(...)`, but that call fires the timer **and** drains the
+microtask queue in the same turn, so the rejection was briefly unhandled and got recorded. With
+fake timers, subscribe first, advance second:
+
+```ts
+const settled = expect(flow).rejects.toThrow(/…/);  // subscribe
+await vi.advanceTimersByTimeAsync(1500);            // then fire the timer
+await settled;
+```
 
 ## Architecture
 
@@ -171,8 +194,16 @@ Chrome destroys a popup as soon as it loses focus, which
   `node:crypto` `createPublicKey`, then `verify()` the DER signature.
 - Unit tests stub Vault with msw (`onUnhandledRequest: 'error'`).
 - `npm run test:integration` runs `scripts/integration-test.sh`: a disposable
-  `vault -dev` on port 8210, transit enabled, torn down afterwards. The suite
-  self-skips unless `VAULT_TEST_ADDR` is set.
+  `hashicorp/vault` dev container on port 8210, transit enabled, torn down
+  afterwards. It needs Docker or Podman (auto-detected, override with
+  `VAULT_TEST_ENGINE`) rather than a local `vault` binary, so CI and a developer
+  machine run the same path. Transit and the password policy are provisioned over
+  the HTTP API for that reason — don't reintroduce `vault` CLI calls.
+- The suite self-skips unless `VAULT_TEST_ADDR` is set, which the script exports.
+  That makes a *silent pass* the failure mode to guard against: if the server
+  never came up, the tests would skip and the job would still be green. The
+  script therefore hard-fails on a missing engine, unreachable daemon or an
+  unhealthy server instead of letting vitest report "16 skipped".
 - The integration file needs `@vitest-environment node`; the default happy-dom
   enforces browser CORS and blocks requests the extension makes legitimately via
   `host_permissions`.

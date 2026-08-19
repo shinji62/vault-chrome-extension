@@ -1,61 +1,86 @@
 #!/usr/bin/env bash
-# Runs the integration suite against a throwaway Vault dev server.
+# Runs the integration suite against a throwaway Vault dev server in a container.
 #
-# Starts Vault in -dev mode (in-memory, unsealed), enables the secrets engines
-# the extension needs, runs the tests, then tears the server down.
-set -uo pipefail
+# Vault runs in -dev mode (in-memory, unsealed, `secret/` premounted as KV v2).
+# The engines the extension needs are provisioned over the HTTP API rather than
+# with the `vault` CLI, so a container engine is the only requirement — the same
+# path then runs locally and in CI, which is what keeps the two from drifting.
+set -euo pipefail
 
+IMAGE="${VAULT_TEST_IMAGE:-docker.io/hashicorp/vault:1.19.1}"
 PORT="${VAULT_TEST_PORT:-8210}"
 ADDR="http://127.0.0.1:${PORT}"
 TOKEN="root-integration-token"
-LOG="$(mktemp -t vault-integration-XXXXXX)"
+NAME="vault-integration-$$"
 
-if ! command -v vault >/dev/null 2>&1; then
-  echo "error: the 'vault' binary is required (brew install vault)" >&2
+# CI runners ship Docker; Podman is CLI-compatible for everything used here and
+# is common on developer machines.
+ENGINE="${VAULT_TEST_ENGINE:-}"
+if [[ -z "$ENGINE" ]]; then
+  for candidate in docker podman; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      ENGINE="$candidate"
+      break
+    fi
+  done
+fi
+
+if [[ -z "$ENGINE" ]]; then
+  echo "error: a container engine is required (install Docker or Podman)" >&2
   exit 1
 fi
 
-vault server -dev \
-  -dev-root-token-id="$TOKEN" \
-  -dev-listen-address="127.0.0.1:${PORT}" \
-  >"$LOG" 2>&1 &
-VAULT_PID=$!
+if ! command -v "$ENGINE" >/dev/null 2>&1; then
+  echo "error: container engine '$ENGINE' not found on PATH" >&2
+  exit 1
+fi
+
+if ! "$ENGINE" info >/dev/null 2>&1; then
+  echo "error: '$ENGINE' is installed but its daemon is not reachable" >&2
+  exit 1
+fi
 
 cleanup() {
-  kill "$VAULT_PID" 2>/dev/null
-  wait "$VAULT_PID" 2>/dev/null
-  rm -f "$LOG"
+  "$ENGINE" rm -f "$NAME" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
-export VAULT_ADDR="$ADDR"
-export VAULT_TOKEN="$TOKEN"
+"$ENGINE" run -d --name "$NAME" \
+  -p "127.0.0.1:${PORT}:8200" \
+  -e "VAULT_DEV_ROOT_TOKEN_ID=${TOKEN}" \
+  -e 'VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200' \
+  --cap-add=IPC_LOCK \
+  "$IMAGE" >/dev/null
+
+api() {
+  local method="$1" path="$2"
+  shift 2
+  curl -sf -X "$method" -H "X-Vault-Token: ${TOKEN}" "${ADDR}/v1/${path}" "$@"
+}
 
 # Wait for the dev server to accept requests.
-for _ in $(seq 1 50); do
-  vault status >/dev/null 2>&1 && break
-  sleep 0.2
+for _ in $(seq 1 60); do
+  curl -sf "${ADDR}/v1/sys/health" >/dev/null 2>&1 && break
+  sleep 0.5
 done
 
-if ! vault status >/dev/null 2>&1; then
-  echo "error: Vault dev server failed to start; log follows:" >&2
-  cat "$LOG" >&2
+if ! curl -sf "${ADDR}/v1/sys/health" >/dev/null 2>&1; then
+  echo "error: Vault dev server failed to start; container log follows:" >&2
+  "$ENGINE" logs "$NAME" >&2 2>&1 || true
   exit 1
 fi
 
-vault secrets enable transit >/dev/null
+api POST sys/mounts/transit -d '{"type":"transit"}' >/dev/null
 
 # Password-policy generation is exercised by the tests, but the client has no
 # policy-write method, so the policy is provisioned here.
-vault write sys/policies/password/itest-policy policy=- >/dev/null <<'POLICY'
-length = 24
-rule "charset" {
-  charset = "abcdefghijklmnopqrstuvwxyz0123456789"
-  min-chars = 1
+api POST sys/policies/password/itest-policy --data-binary @- >/dev/null <<'POLICY'
+{
+  "policy": "length = 24\nrule \"charset\" {\n  charset = \"abcdefghijklmnopqrstuvwxyz0123456789\"\n  min-chars = 1\n}\n"
 }
 POLICY
 
-echo "Vault dev server ready at $ADDR"
+echo "Vault dev server ready at $ADDR (${IMAGE} via ${ENGINE})"
 
 VAULT_TEST_ADDR="$ADDR" VAULT_TEST_TOKEN="$TOKEN" \
   npx vitest run src/api/vaultClient.integration.test.ts "$@"
