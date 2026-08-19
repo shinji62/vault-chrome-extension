@@ -46,6 +46,32 @@ export interface KVv2Metadata {
   };
 }
 
+/** A WebAuthn passkey stored by the Password Manager. Only the private key
+ *  (JWK) is encrypted at rest via the Vault Transit engine; the remaining
+ *  fields are plaintext metadata the software authenticator needs. */
+export interface PasskeyRecord {
+  /** Human-readable name shown in the list (leaf key of the stored path). */
+  label: string;
+  /** Relying party ID the passkey belongs to (e.g. "example.com"). */
+  rpId: string;
+  /** Account username associated with the passkey. */
+  username?: string;
+  /** WebAuthn credential id, base64url. */
+  credentialId: string;
+  /** WebAuthn user handle, base64url. */
+  userHandle: string;
+  /** COSE signing algorithm as a string, e.g. "-7" for ES256. */
+  algorithm: string;
+  /** WebAuthn signature counter as a string. */
+  counter: string;
+  /** Transit-encrypted private key (JWK) JSON. */
+  ciphertext: string;
+  /** Transit key version used when encrypting (v1/v2...). */
+  keyVersion?: number;
+  /** ISO timestamp of creation. */
+  createdAt?: string;
+}
+
 export interface TokenInfo {
   ttl: number;
   creation_ttl: number;

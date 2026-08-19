@@ -1,0 +1,32 @@
+<!-- Standalone copy of src/components/VaultLogo.tsx, so the mockups can <img> it
+     instead of repeating the markup in every file. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none">
+  <defs>
+    <linearGradient id="vault-brass" x1="8" y1="4" x2="24" y2="28" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#E7C56A" />
+      <stop offset="0.5" stop-color="#C99733" />
+      <stop offset="1" stop-color="#9A6E22" />
+    </linearGradient>
+    <linearGradient id="vault-obsidian" x1="10" y1="8" x2="22" y2="25" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3A3426" />
+      <stop offset="1" stop-color="#120F08" />
+    </linearGradient>
+  </defs>
+  <path d="M16 2.5l10.5 3.6V15c0 6.6-4.5 11.6-10.5 13.5C10.5 26.6 5.5 21.6 5.5 15V6.1L16 2.5z" fill="url(#vault-brass)" />
+  <path
+    d="M16 5l7.5 2.6V15c0 5.2-3.4 9.3-7.5 11-4.1-1.7-7.5-5.8-7.5-11V7.6L16 5z"
+    fill="none"
+    stroke="#F3E0A6"
+    stroke-opacity="0.5"
+    stroke-width="1"
+  />
+  <path
+    d="M13.4 10.5L16 18.4l2.6-7.9"
+    stroke="url(#vault-obsidian)"
+    stroke-width="3.6"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+  <circle cx="16" cy="20.6" r="1.9" fill="url(#vault-obsidian)" />
+</svg>

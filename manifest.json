@@ -3,6 +3,7 @@
   "name": "Vault Password Manager",
   "version": "0.1.0",
   "description": "HashiCorp Vault password manager for Chrome",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2zjOynATyTJTixzYxEAPf5b+B/QxrT3uotU10tuQTjLFvCj0UAdg2/uJNazgt0fR9GckbevXe2A9G39gpxVV3G+8pQN0VcfU0WdGxZtIfmyHUnmVwMAkABVb0LDfaBt/WEOafycIhBUTZdmr7J0ac+2xoAnz7+ew5rskU+M/eCJHHrpOrROlY1mO8Cwo3pQQYj+GaA2N87gcJgNvsu4FE8tK0wBPd+JDOw+KPrt/LwBoN+T45oT4GKb+aF9mEpghHaTf48LmtBgljDIwBaMYwG91jVrC8rWn1bbeGkdBD+e0661x820pFUa17uFQn5gIBuN9evj3thifsZGM4r8lIQIDAQAB",
 
   "action": {
     "default_popup": "src/popup/index.html",
@@ -19,6 +20,19 @@
       "matches": ["<all_urls>"],
       "js": ["src/content/index.ts"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/webauthnBridge.ts"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/webauthnMain.ts"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
     }
   ],
 

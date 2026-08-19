@@ -1,54 +1,117 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<title>Vault — Settings</title>
-<link rel="stylesheet" href="screens.css" />
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Fraunces:wght@500;600&display=swap" rel="stylesheet" />
-</head>
-<body>
-  <div class="page-options">
-    <h1>⚙ Settings</h1>
-    <p style="color:var(--color-muted); margin-top:4px; font-size:var(--font-size-sm);">
-      Connect to HashiCorp Vault and configure the Password Manager.
-    </p>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <title>Vault — Settings</title>
+    <link rel="stylesheet" href="screens.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="stage">
+    <!-- Settings renders inside the popup (Popup.tsx → Options with onBack), so it
+         uses the same 400px frame. The height is left to grow: the real screen
+         scrolls, and a clipped capture would hide the passkey settings. -->
+    <div class="popup-frame">
+      <div class="options-page options-page-inline">
+        <div class="options-header">
+          <button class="btn-ghost-header" style="margin-right: 4px">← Back</button>
+          <div style="flex: 1">
+            <div class="options-header-title">Settings</div>
+            <div class="options-header-sub">Vault connection</div>
+          </div>
+          <button class="btn-ghost-header" style="padding: 3px 7px; font-size: 14px; line-height: 1">🌙</button>
+        </div>
 
-    <fieldset class="fieldset">
-      <legend>Connection</legend>
-      <div class="row2">
-        <div class="field wide">
-          <label>Vault URL</label>
-          <input class="input" value="https://vault.example.com" readonly />
-        </div>
-        <div class="field">
-          <label>Namespace <span class="label-optional">(optional)</span></label>
-          <input class="input" value="admin" readonly />
-        </div>
-        <div class="field">
-          <label>Authentication method</label>
-          <input class="input" value="token" readonly />
+        <div class="options-body">
+          <div class="options-card">
+            <div class="flex-col" style="gap: 0">
+              <div class="badge badge-success" style="margin-bottom: 20px; align-self: flex-start">
+                ✓ Connected — TTL: 2h 14m
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 16px">
+                <div class="field">
+                  <label>Vault URL <span class="text-danger">*</span></label>
+                  <input type="url" value="https://vault.example.com" readonly />
+                </div>
+
+                <div class="field">
+                  <label>Namespace <span class="label-optional">(optional)</span></label>
+                  <div class="ns-picker-wrapper" style="max-width: none">
+                    <select class="ns-picker-select">
+                      <option>admin</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label>Auth Method</label>
+                  <div class="radio-group">
+                    <label class="radio-option"><input type="radio" name="authMethod" />Token</label>
+                    <label class="radio-option"><input type="radio" name="authMethod" checked />OIDC</label>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label>OIDC Mount Path <span class="label-optional">(default: oidc)</span></label>
+                  <input type="text" value="oidc" readonly />
+                </div>
+
+                <div class="field">
+                  <label>OIDC Role <span class="label-optional">(optional)</span></label>
+                  <input type="text" value="default" readonly />
+                </div>
+
+                <div class="field">
+                  <label>OIDC Redirect URI <span class="label-optional">(optional — override the default)</span></label>
+                  <input type="text" placeholder="https://<extension-id>.chromiumapp.org/vault-oidc" readonly />
+                  <p class="field-hint">
+                    Must be listed in your Vault OIDC role's <code>allowed_redirect_uris</code>. Defaults to
+                    <code>https://&lt;extension-id&gt;.chromiumapp.org/vault-oidc</code>.
+                  </p>
+                </div>
+
+                <div class="field">
+                  <label>PM Namespace <span class="label-optional">(optional — leave empty for root)</span></label>
+                  <input type="text" value="team/passwords" readonly />
+                </div>
+
+                <div class="field">
+                  <label>KV v2 Mount <span class="label-optional">(default: secret)</span></label>
+                  <input type="text" value="secret" readonly />
+                </div>
+
+                <div class="field">
+                  <label style="display: flex; align-items: center; gap: 8px; font-weight: 600">
+                    <input type="checkbox" checked style="width: auto" />
+                    <span>Enable Transit (Passkeys)</span>
+                  </label>
+                  <p class="text-muted text-sm" style="margin-top: 4px">
+                    Save &amp; read passkeys encrypted via the Vault Transit engine. When disabled, passkeys
+                    cannot be saved or read. Requires a per-identity Transit key to be provisioned by an admin
+                    (see README).
+                  </p>
+                </div>
+
+                <div class="field">
+                  <label>Transit Mount <span class="label-optional">(default: transit)</span></label>
+                  <input type="text" value="transit" readonly />
+                </div>
+
+                <div class="flex gap-2" style="padding-top: 4px">
+                  <button class="btn btn-primary">Login with OIDC</button>
+                </div>
+
+                <div class="flex gap-2">
+                  <button class="btn">Disconnect</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </fieldset>
-
-    <fieldset class="fieldset">
-      <legend>Password Manager</legend>
-      <div class="growrow">
-        <div class="field wide">
-          <label>PM Namespace <span class="label-optional">(optional — leave empty for root)</span></label>
-          <input class="input" value="team/passwords" readonly />
-        </div>
-        <div class="field">
-          <label>KV v2 Mount <span class="label-optional">(default: secret)</span></label>
-          <input class="input" value="secret" readonly />
-        </div>
-      </div>
-    </fieldset>
-
-    <div style="display:flex; gap:10px; margin-top:22px;">
-      <button class="btn btn-primary">Verify &amp; Save</button>
-      <button class="btn">Disconnect</button>
     </div>
-  </div>
-</body>
+  </body>
 </html>

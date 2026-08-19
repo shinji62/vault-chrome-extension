@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <title>Vault — Passkeys</title>
+    <link rel="stylesheet" href="screens.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="stage">
+    <div class="popup-frame fixed-height">
+      <div class="app-header">
+        <div class="app-header-logo"><img src="logo.svg" width="26" height="26" alt="" /></div>
+        <div class="app-header-title">Vault Secrets</div>
+        <button class="btn-ghost-header" style="font-size: 16px; padding: 3px 8px">⚙</button>
+        <button class="btn-ghost-header" style="font-size: 16px; padding: 3px 8px">🔧</button>
+        <button class="btn-ghost-header" style="padding: 3px 7px; font-size: 14px; line-height: 1; margin-left: 4px">🌙</button>
+      </div>
+
+      <div class="status-bar">
+        <span class="status-dot status-dot-connected"></span>
+        <span class="text-sm" style="color: var(--color-success); font-weight: 500">Connected</span>
+        <div class="ns-picker-wrapper">
+          <span class="ns-picker-label">NS</span>
+          <span class="ns-picker-static">team/passwords</span>
+        </div>
+        <span class="ml-auto badge badge-success">TTL 2h 14m</span>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button class="tab-btn" style="flex: 1">Secrets</button>
+        <button class="tab-btn active" style="flex: 1">Passwords</button>
+      </div>
+
+      <div style="display: flex; gap: 4px; padding: 6px 12px; border-bottom: var(--border); background: var(--color-surface); flex-shrink: 0">
+        <button style="flex: 1; padding: 5px 0; font-size: 12px; font-weight: 600; color: var(--color-muted); background: transparent; border: none; border-bottom: 2px solid transparent">
+          🔑 Passwords
+        </button>
+        <button style="flex: 1; padding: 5px 0; font-size: 12px; font-weight: 600; color: var(--color-text); background: transparent; border: none; border-bottom: 2px solid var(--color-brand)">
+          🔐 Passkeys
+        </button>
+      </div>
+
+      <div class="flex-col" style="flex: 1; overflow: hidden">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: var(--border); background: var(--color-surface); flex-shrink: 0">
+          <span style="font-weight: 600; font-size: 13px; color: var(--color-text)">Passkeys</span>
+        </div>
+
+        <!-- Rows show rpId · username, because the label carries a credential-id
+             suffix to stay unique per credential. -->
+        <div style="flex: 1; overflow-y: auto">
+          <button style="display: flex; flex-direction: column; gap: 2px; align-items: flex-start; width: 100%; text-align: left; padding: 10px 14px; background: var(--color-bg); border: none; border-bottom: 1px solid var(--color-border-subtle)">
+            <span style="font-weight: 600; font-size: 13px; color: var(--color-text)">webauthn.io · octocat</span>
+            <span style="font-size: 11px; color: var(--color-muted); font-family: 'SF Mono', ui-monospace, monospace">webauthn.io-octocat-3f9ac21b</span>
+          </button>
+          <button style="display: flex; flex-direction: column; gap: 2px; align-items: flex-start; width: 100%; text-align: left; padding: 10px 14px; background: var(--color-surface); border: none; border-bottom: 1px solid var(--color-border-subtle)">
+            <span style="font-weight: 600; font-size: 13px; color: var(--color-text)">github.com · octocat</span>
+            <span style="font-size: 11px; color: var(--color-muted); font-family: 'SF Mono', ui-monospace, monospace">github.com-octocat-8c1d47e0</span>
+          </button>
+          <button style="display: flex; flex-direction: column; gap: 2px; align-items: flex-start; width: 100%; text-align: left; padding: 10px 14px; background: var(--color-bg); border: none; border-bottom: 1px solid var(--color-border-subtle)">
+            <span style="font-weight: 600; font-size: 13px; color: var(--color-text)">github.com · octocat-ci</span>
+            <span style="font-size: 11px; color: var(--color-muted); font-family: 'SF Mono', ui-monospace, monospace">github.com-octocat-ci-b204f5aa</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

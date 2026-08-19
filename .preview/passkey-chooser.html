@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <title>Vault — Passkey chooser</title>
+    <link rel="stylesheet" href="screens.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="stage">
+    <!-- content/webauthnPrompt.ts — choosePasskey(). get() must never pick an
+         identity on the user's behalf, so the chooser appears whenever a passkey
+         is stored for the site. -->
+    <div class="webpage stage-modal">
+      <h2>Sign in to Example</h2>
+      <button class="fake-submit" style="margin-top: 4px">Sign in with a passkey</button>
+
+      <div class="vault-save-backdrop">
+        <div class="vault-save-banner">
+          <div class="vault-save-header">
+            <span class="vault-save-icon" aria-hidden="true">🔐</span>
+            <span class="vault-save-title">
+              Choose a passkey
+              <small>Sign in to github.com with Vault</small>
+            </span>
+            <button class="vault-save-close" aria-label="Cancel">✕</button>
+          </div>
+
+          <div class="vault-wa-list" role="listbox">
+            <button class="vault-wa-item" role="option">
+              <span class="vault-wa-item-user">octocat</span>
+              <span class="vault-wa-item-label">github.com-octocat-8c1d47e0</span>
+            </button>
+            <button class="vault-wa-item" role="option">
+              <span class="vault-wa-item-user">octocat-ci</span>
+              <span class="vault-wa-item-label">github.com-octocat-ci-b204f5aa</span>
+            </button>
+          </div>
+
+          <div class="vault-save-actions">
+            <button class="vault-save-btn vault-save-btn-ghost">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

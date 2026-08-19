@@ -7,21 +7,28 @@ delete KV secrets directly from your browser, with auto-fill and auto-save for l
 
 ## Screenshots
 
-| Options page (PM settings) | Mount picker |
+| Settings | Mount picker |
 |---|---|
-| ![Options page](docs/screenshots/options-page.png) | ![Mount picker](docs/screenshots/mount-picker.png) |
+| ![Settings](docs/screenshots/options-page.png) | ![Mount picker](docs/screenshots/mount-picker.png) |
 
 | Secret browser | Secret detail |
 |---|---|
 | ![Secret browser](docs/screenshots/secret-browser.png) | ![Secret detail](docs/screenshots/secret-detail.png) |
 
-| Password Manager | Auto-fill overlay |
+| Password Manager | Passkeys |
 |---|---|
-| ![Password Manager](docs/screenshots/pm-credentials.png) | ![Auto-fill overlay](docs/screenshots/autofill-overlay.png) |
+| ![Password Manager](docs/screenshots/pm-credentials.png) | ![Passkeys](docs/screenshots/pm-passkeys.png) |
 
-| Auto-save banner |
-|---|
-| ![Auto-save banner](docs/screenshots/autosave-banner.png) |
+| Auto-fill overlay | Save prompt |
+|---|---|
+| ![Auto-fill overlay](docs/screenshots/autofill-overlay.png) | ![Save prompt](docs/screenshots/autosave-banner.png) |
+
+| Passkey consent | Passkey chooser |
+|---|---|
+| ![Passkey consent](docs/screenshots/passkey-consent.png) | ![Passkey chooser](docs/screenshots/passkey-chooser.png) |
+
+<sub>Regenerate with `npm run screenshots` after a UI change — see
+[`.preview/`](.preview) for the mockups they are captured from.</sub>
 
 ---
 
@@ -109,9 +116,24 @@ vault token create -policy=default -ttl=24h
 1. Select **OIDC** as the auth method.
 2. Enter the OIDC **role name** configured in your Vault OIDC auth mount.
 3. _(Optional)_ Set the **OIDC mount path** if it is not the default `oidc`.
-4. Click **Login with OIDC** — a browser tab opens and handles the OAuth flow with your
-   identity provider.
-5. After successful authentication the token is saved automatically and the tab closes.
+4. Click **Login with OIDC** — Chrome opens the OAuth flow with your identity provider and,
+   on success, saves the Vault token automatically.
+
+> **Redirect URI:** the login runs in a normal browser tab, so it carries your profile's cookies
+> and device state — providers that enforce device-based Conditional Access (Entra ID being the
+> common case) authenticate but never redirect from an isolated auth window. The redirect URI
+> still lives under the extension's own `https://<extension-id>.chromiumapp.org/` origin
+> (default path `/vault-oidc`); the tab never loads it, the extension just captures the
+> navigation. Add this URL to your Vault OIDC role's `allowed_redirect_uris`, e.g.
+> `vault write auth/oidc/role/default allowed_redirect_uris="https://<extension-id>.chromiumapp.org/vault-oidc"`.
+> If your role requires a different redirect URI, set the **Redirect URI** override in Settings
+> to your configured `https://…chromiumapp.org/…` path.
+>
+> **Stable extension ID:** this manifest pins a fixed `key`, so every installation derives the
+> **same** extension ID (and therefore the same redirect URI) — including "Load unpacked" /
+> unpacked distribution. You only need to whitelist one redirect URI. Keep the matching private
+> key (`.keys/extension_private_key.pem`, gitignored) safe: it must never be lost or committed,
+> and any change to the key changes the extension ID and breaks the OIDC redirect.
 
 ### Disconnect
 
@@ -128,12 +150,14 @@ Vault entity ID, so a token can only ever see its own passwords.
 ### PM Settings
 
 The PM is configured in the **Password Manager** fields of the options page (they are set up
-when you first connect). Both are optional:
+when you first connect). All fields are optional:
 
 | Setting | Meaning | Default |
 |---|---|---|
 | **PM Namespace** | A dedicated Vault namespace for Password Manager storage. Leave empty to use the root namespace. | *(root namespace)* |
 | **KV v2 Mount** | The KV v2 secret mount inside that namespace where credentials are stored. | `secret` |
+| **Enable Transit (Passkeys)** | Enables saving & reading passkeys, encrypted at rest via the Vault **Transit** engine. When **disabled, passkeys cannot be saved or read** from the extension. | off |
+| **Transit Mount** | The Transit mount inside that namespace used to encrypt passkeys. A per-identity key must be provisioned by an admin (see below). | `transit` |
 
 > The PM is **KV v2 only** — the configured mount must be a KV version 2 secret engine.
 
@@ -193,6 +217,115 @@ path "sys/policies/password/*" {
 >   set a **PM Namespace** such as `team/passwords`, create/attach this policy *inside that
 >   namespace* (the relative `secret/...` paths resolve there) — do **not** prefix the paths
 >   with the namespace name.
+
+### Passkeys (Transit)
+
+Passkeys are optional. They are only available when **Enable Transit (Passkeys)** is turned on
+in the PM settings — when it is off, the extension cannot save or read passkeys.
+
+Each passkey is stored in the same per-identity PM subtree as passwords:
+
+```
+{pmMount}/password-manager/{entity_id}/passkeys/{label}
+```
+
+Only the **secret** (e.g. a private key or credential blob) is encrypted; it is encrypted with
+the Vault **Transit** engine before being written to KV, and decrypted again when you reveal it.
+The rest of the record (`rpId`, `username`, `keyVersion`) is stored as plaintext metadata, the
+same way passwords store their `url` custom-metadata.
+
+#### One Transit key per identity
+
+The extension encrypts with a **single Transit key per identity**, named after the entity ID:
+
+```
+transit/passkey-{entity_id}
+```
+
+Naming the key after the identity keeps the ACL policy small: a policy that uses the
+`{{identity.entity.id}}` template grants each user access to *their own* key and no one else's,
+with no per-user list to maintain.
+
+#### WebAuthn software authenticator
+
+Beyond storing them, the extension acts as a **WebAuthn software authenticator**. A MAIN-world
+content script intercepts `navigator.credentials.create()` / `navigator.credentials.get()` at
+`document_start` and, when this feature is enabled, answers from a passkey stored in Vault. A
+site using the standard WebAuthn APIs therefore sees the extension as another passkey provider:
+
+- **Create (registration):** when a site asks to register a passkey, the extension generates an
+  ES256 (P-256, COSE `-7`) key pair, builds a self-attested attestation object (`fmt: "none"`),
+  saves the credential (private JWK encrypted via Transit) under `passkeys/{rpId}`, and returns
+  the new `PublicKeyCredential`.
+- **Get (authentication):** when a site asks to sign in with a passkey for an `rpId` you have
+  saved, the extension decrypts the private key, signs a valid ECDSA assertion over
+  `authenticatorData || clientDataHash`, and returns it.
+
+Both flows ask first: patching `navigator.credentials` also suppresses Chrome's own
+authenticator dialog, so the extension shows the consent prompt (registration) or the chooser
+(sign-in) itself. Nothing is written to Vault, and no private key is generated, until you answer;
+dismissing either dialog returns a `NotAllowedError` to the page, exactly as declining the
+native prompt would.
+
+If the extension *cannot service* a request (Transit disabled, no matching passkey, or no
+extension running), it transparently falls back to the browser's native flow — so security keys
+and other passkey providers keep working. Cancelling is not such a case: it is an answer, and it
+is not retried against the native authenticator.
+
+Notes & constraints:
+
+- Only **ES256** (P-256 / COSE `-7`) is supported; a request that *only* offers other algorithms
+  is left to the native flow.
+- `userVerification: "required"` is refused: there is no PIN or biometric here, so the
+  authenticator data is user-presence-only. Such requests are left to the native flow.
+- Credentials are stored per registration, not per site: the KV label is
+  `{rpId}-{userName}-{credentialId suffix}`, so several accounts on the same site coexist and
+  re-registering never overwrites an existing private key.
+- The private key is the only thing encrypted; identifiers (`rpId`, `credentialId`, `userHandle`,
+  `userName`, algorithm, counter) are plaintext KV metadata.
+- The returned credential is a synthetic `PublicKeyCredential`: relying-party libraries that call
+  `getClientExtensionResults()`/`getTransports()` are supported, but a site doing a strict
+  `instanceof PublicKeyCredential` check will not recognize it.
+
+
+#### Admin provisioning
+
+The Transit key must be **created by an admin** — the extension never creates it. The admin
+needs each user's entity ID, which the extension displays/stores after login (`vaultEntityId`),
+or can be found with:
+
+```console
+$ vault token lookup -format=json | jq -r .data.entity_id
+```
+
+Then enable the Transit engine (once) and create one key per user:
+
+```console
+$ vault secrets enable -path=transit transit
+$ vault write -f transit/keys/passkey-<entity_id>
+```
+
+> Use the actual entity ID in place of `<entity_id>` (e.g. `passkey-8f4a2c1b-...`). If you set a
+> **PM Namespace**, enable Transit and create the keys *inside that namespace*.
+
+#### Example policy
+
+Add these rules to the PM policy so each user may encrypt/decrypt only their own passkey key:
+
+```hcl
+# Encrypt passkeys with the caller's own Transit key.
+path "transit/encrypt/passkey-{{identity.entity.id}}" {
+  capabilities = ["create", "update"]
+}
+
+# Decrypt passkeys with the caller's own Transit key.
+path "transit/decrypt/passkey-{{identity.entity.id}}" {
+  capabilities = ["create", "update"]
+}
+```
+
+> As with the KV paths above, the `transit/...` paths are relative to the namespace the policy
+> is assigned in. If you used a different Transit mount path, adjust it here (e.g. `mytransit/...`).
 
 ---
 
@@ -368,7 +501,7 @@ from the selected policy. The generated password is copied to the clipboard auto
 # Watch build (rebuilds on file changes)
 npm run dev
 
-# Run tests (34 tests, no Vault instance required)
+# Run unit tests (89 tests, no Vault instance required)
 npm test
 
 # Run tests in watch mode
@@ -377,12 +510,44 @@ npm run test:watch
 # Generate coverage report
 npm run test:coverage
 
+# Type-check
+npm run typecheck
+
 # Lint
 npm run lint
 
 # Format
 npm run format
 ```
+
+### Integration tests
+
+`npm test` stubs Vault with msw, so it can only prove the client is
+self-consistent — not that it matches Vault's real API. The integration suite
+talks to a throwaway `vault -dev` server instead:
+
+```bash
+# Requires Docker or Podman
+npm run test:integration
+```
+
+The script runs the official `hashicorp/vault` image in dev mode on port 8210
+(in-memory, unsealed), enables `transit`, provisions a password policy, runs the
+suite, then removes the container. Nothing touches a real Vault, and no state
+survives the run. Override the port with `VAULT_TEST_PORT`, the image with
+`VAULT_TEST_IMAGE`, and the container engine with `VAULT_TEST_ENGINE` (Docker and
+Podman are auto-detected in that order).
+
+These tests cover the KV v2 round-trip, `custom_metadata` (used for URL
+matching), nested listing, percent-encoded secret names, Transit
+encrypt/decrypt, password generation, and the full passkey lifecycle —
+registering a credential, decrypting the key from Vault, and verifying the
+resulting assertion with Node's `crypto` against the public key recovered from
+the stored attestation.
+
+They are skipped automatically unless `VAULT_TEST_ADDR` is set (the script sets
+it), so a plain `npm test` stays hermetic. CI runs them as a separate
+`Integration Tests` job.
 
 ### Project Structure
 
